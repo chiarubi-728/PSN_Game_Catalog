@@ -16,7 +16,7 @@
 <details id="filter-advanced" class="filter-advanced"><summary>更多篩選 <span id="filter-extra-count"></span></summary><div class="filter-extra-grid">
 <label>個人整理<select id="status"><option value="">全部個人標記</option></select></label>
 <label>自訂分類<select id="category-filter"><option value="">全部分類</option></select></label>
-<fieldset class="filter-progress-range"><legend>獎盃完成率區間</legend><div><input id="progress-min" type="number" min="0" max="100" step="any" inputmode="decimal" placeholder="0" aria-label="最低完成率百分比"><span>至</span><input id="progress-max" type="number" min="0" max="100" step="any" inputmode="decimal" placeholder="100" aria-label="最高完成率百分比"><span>%</span></div></fieldset>
+<fieldset class="filter-progress-range"><legend>獎盃完成率區間</legend><div><input id="progress-min" type="number" min="0" max="100" step="any" inputmode="decimal" placeholder="0" aria-label="最低完成率百分比"><span>至</span><input id="progress-max" type="number" min="0" max="100" step="any" inputmode="decimal" placeholder="100" aria-label="最高完成率百分比"><span>%</span><button id="clear-progress-range" type="button" aria-label="清除獎盃完成率區間">清除</button></div></fieldset>
 </div><p class="filter-hint">完成率與白金分別判定；缺少完成率或獎盃數資料的遊戲，排序時放在最後。</p></details>
 <p id="filter-error" class="filter-error" role="alert" hidden>完成率請輸入 0–100，最低值不可高於最高值。</p>
 <div class="filter-summary-row"><span id="filter-count" aria-live="polite"></span><div id="filter-chips" class="filter-chips" aria-label="目前套用的篩選"></div></div>
