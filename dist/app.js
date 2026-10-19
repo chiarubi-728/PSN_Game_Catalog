@@ -19,8 +19,8 @@ let storageFailed=false, externalChanged=false;
 function persist(){if(demo)return true;if(externalChanged){storageFailed=true;notice('另一分頁已有新版本，已停止寫入。請匯出此頁備份，再重新整理，避免覆蓋新資料。');return false;}try{localStorage.setItem(KEY,JSON.stringify(state));storageFailed=false;return true;}catch{storageFailed=true;notice('瀏覽器儲存失敗！目前變更只在此分頁，請立即匯出備份。');return false;}}
 function el(tag,text,className){const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(className)n.className=className;return n;}
 function option(select,value,label){const n=el('option',label??value);n.value=value;select.append(n);}
-for(const id of ['status','batch-status']) for(const item of classificationOptions) if(id!=='status'||item.value!=='已白金')option($(id),item.value,item.label);
-option($('status'),'unclassified','未分類');option($('status'),'exclude-ignored','排除忽略');option($('batch-status'),'未開始','清除分類');
+for(const item of classificationOptions)if(item.value!=='已白金')option($('status'),item.value,item.label);
+option($('status'),'unclassified','未分類');option($('status'),'exclude-ignored','排除忽略');
 option($('status'),'manual-platinum','個人白金標記');
 ({view,category}=restoreCatalogFilters(state.personal));
 for(const item of classificationOptions){const label=el('label',undefined,'status-choice'),input=el('input'),visual=el('span',undefined,'status-option');input.type='radio';input.name='classification';input.value=item.value;visual.dataset.tone=item.tone;visual.append(icon(item.icon),el('span',item.label));label.append(input,visual);$('edit-classifications').append(label);input.onchange=()=>{if(input.checked)setEditorStatus(input.value);};}
@@ -47,8 +47,12 @@ function render(){
  const names={all:'所有遊戲',platinum:'白金',ignored:'忽略',tracked:'追蹤'};
  $('heading').replaceChildren(el('span',category?names[view]+' · '+category:names[view]),el('small',' / LIBRARY'));
  for(const b of $('views').querySelectorAll('button')){const active=b.dataset.view===view;b.classList.toggle('active',active);b.setAttribute('aria-pressed',String(active));}
- $('categories').replaceChildren();$('batch-category').replaceChildren();option($('batch-category'),'','選擇分類');$('category-filter').replaceChildren();option($('category-filter'),'','全部分類');
- for(const c of state.personal.categories){const b=el('button','◌　'+c);b.classList.toggle('active',category===c);b.onclick=()=>{category=c;page=1;render();};$('categories').append(b);option($('batch-category'),c);option($('category-filter'),c);}$('category-filter').value=category;
+ const batchChoice=$('batch-category').value;
+ $('categories').replaceChildren();$('batch-category').replaceChildren();option($('batch-category'),'','選擇分類');
+ for(const item of classificationOptions)option($('batch-category'),'mark:'+item.value,item.value==='已白金'?'白金（個人標記）':item.label);
+ $('category-filter').replaceChildren();option($('category-filter'),'','全部分類');
+ for(const c of state.personal.categories){const b=el('button','◌　'+c);b.classList.toggle('active',category===c);b.onclick=()=>{category=c;page=1;render();};$('categories').append(b);option($('batch-category'),'category:'+c,classificationOptions.some(item=>item.label===c)?c+'（自訂）':c);option($('category-filter'),c);}$('category-filter').value=category;
+ if([...$('batch-category').options].some(item=>item.value===batchChoice))$('batch-category').value=batchChoice;
  const filters=readCatalogFilters();
  const filtered=games.filter(game=>{const r=record(game.key);return (!category||r.categories.includes(category))&&catalogView(game,r,view)&&matchesCatalogFilters(game,r,filters);});
  filtered.sort((a,b)=>compareCatalogGames(a,b,filters.sort,game=>record(game.key)));
@@ -94,7 +98,7 @@ function renderFilterChips(filters){
  const extra=[category,$('status').value,$('progress-min').value||$('progress-max').value].filter(Boolean).length;
  $('filter-extra-count').textContent=extra?'（'+extra+'）':'';
 }
-function renderBatch(){$('batch').hidden=!selected.size;$('selected-count').textContent=`已選 ${selected.size} 個平台版本`;}
+function renderBatch(){$('batch').hidden=!selected.size;$('selected-count').textContent=`已選 ${selected.size} 款遊戲`;$('apply-category').disabled=!selected.size||!$('batch-category').value;}
 function quickClassifications(game,status){
  const controls=el('div',undefined,'quick-classifications');controls.setAttribute('role','radiogroup');controls.setAttribute('aria-label',game.name+' · '+game.platforms.join(' / ')+'分類');let keyboard=false;
  for(const value of ['已白金','想玩','不再遊玩']){
@@ -118,8 +122,16 @@ $('clear-progress-range').onclick=()=>{$('progress-min').value=$('progress-max')
 for(const id of ['filter-panel','filter-advanced'])$(id).addEventListener('toggle',()=>saveCatalogFilters({view,category}));
 $('prev').onclick=()=>{page--;render();};$('next').onclick=()=>{page++;render();};
 $('select-all').onclick=()=>{shown.forEach(g=>selected.add(g.key));render();};$('clear-selection').onclick=()=>{selected.clear();render();};
-function batch(fn){for(const id of selected)fn(id);const saved=persist();render();if(saved)notice('已更新選取的遊戲。');}
-$('apply-status').onclick=()=>batch(id=>update(id,{status:$('batch-status').value}));$('apply-category').onclick=()=>{const c=$('batch-category').value;if(c)batch(id=>update(id,{categories:[...new Set([...record(id).categories,c])]}));};
+$('batch-category').onchange=renderBatch;
+$('apply-category').onclick=()=>{
+ const choice=$('batch-category').value,ids=[...selected].filter(id=>works.has(id));if(!choice||!ids.length)return;
+ const marker=choice.startsWith('mark:')?classificationFor(choice.slice(5)):null,c=choice.startsWith('category:')?choice.slice(9):null;
+ if(!marker&&(!c||!state.personal.categories.includes(c)))return notice('請重新選擇分類。');
+ const previous=state.personal.works;
+ for(const id of ids)update(id,marker?{status:marker.value}:{categories:[...new Set([...record(id).categories,c])]});
+ const saved=persist();if(!saved)state.personal.works=previous;render();
+ if(saved)notice(`已將 ${ids.length} 款遊戲加入「${marker?marker.label:c}」${marker?.value==='已白金'?'（個人標記，不更動獎盃紀錄）':''}。`);
+};
 function edit(g){const r=record(g.key);$('edit-name').textContent=g.name+' · '+(g.platforms.join(' / ')||'未知平台');$('edit-id').value=g.key;$('edit-info').textContent=`${g.platforms.join(' · ')||'未知平台'} · ${g.digitalMembers.length} 筆數位授權 · ${g.played?'有遊玩紀錄':'尚無遊玩紀錄'} · 此平台的筆記獨立保存`;$('edit-platform-review').hidden=true;$('edit-conflicts').hidden=!hasWorkConflicts(state.personal,g);$('edit-versions').open=false;$('edit-versions').hidden=!g.digitalMembers.length;$('edit-version-list').replaceChildren();for(const m of g.digitalMembers){const item=el('p',`${m.platform||'未知平台'} · ${m.membership==='PS_PLUS'?'PS Plus':m.membership==='NONE'?'非 PS Plus':'來源未分類'}${(state.library.missingIds||[]).includes(m.entitlementId)?' · 最近同步未出現':''}`);item.append(el('small',m.productId||m.entitlementId));$('edit-version-list').append(item);}$('edit-history').replaceChildren();for(const entry of g.historyEntries){const row=el('p',entry.name+' · '+entry.platforms.join(' / ')+' · '+(entry.platinum?'已白金':'尚未白金')+(entry.progress!==null?' · '+entry.progress+'%':'')+' · '+(entry.provider==='sony'?'Sony':'PSNProfiles'));if(entry.url){const link=el('a','查看獎盃來源 ↗');link.href=entry.url;link.target='_blank';link.rel='noopener noreferrer';row.append(document.createTextNode(' '),link);}const oldKey=historyRecordKey(entry),old=state.personal.works[oldKey];if(oldKey!==g.key&&old?.note&&old.note!==r.note){const note=el('span','原遊玩紀錄筆記：'+old.note,'preserve-lines');row.append(el('br'),note);}$('edit-history').append(row);}$('edit-history-section').hidden=!g.played;$('edit-official-names').textContent=(g.officialNames||[]).join(' / ');$('edit-official-section').hidden=!g.officialNames?.length;$('edit-official-links').replaceChildren();const officialUrls=new Set(g.digitalMembers.flatMap(member=>state.storeNames?.records?.[member.productId?.trim().toUpperCase()]?.sourceUrls||[]));for(const url of officialUrls){const link=el('a','Sony 官方名稱來源 ↗');link.href=url;link.target='_blank';link.rel='noopener noreferrer';$('edit-official-links').append(link);}setEditorStatus(r.status,true);$('edit-note').value=r.note;$('edit-title-aliases').value=(r.titleAliases||[]).join('\n');$('edit-tags').value=r.tags.join(', ');$('edit-categories').replaceChildren();for(const c of state.personal.categories){const label=el('label',undefined,'check'),check=el('input');check.type='checkbox';check.value=c;check.checked=r.categories.includes(c);label.append(check,document.createTextNode(c));$('edit-categories').append(label);}$('store-link').hidden=!/^[A-Z0-9_-]+$/i.test(g.productId||'');$('store-link').href='https://store.playstation.com/zh-hant-tw/product/'+encodeURIComponent(g.productId||'');$('editor').showModal();}
 $('edit-form').onsubmit=e=>{e.preventDefault();const tags=[...new Set($('edit-tags').value.split(/[,，]/).map(t=>t.trim()).filter(Boolean))];if(tags.some(t=>t.length>100))return notice('每個標籤最多 100 字。');const titleAliases=[...new Set($('edit-title-aliases').value.split(/\r?\n/).map(name=>name.trim()).filter(Boolean))];if(titleAliases.length>50||titleAliases.some(name=>name.length>500))return notice('白金配對名稱最多 50 個，每個最多 500 字。');update($('edit-id').value,{titleAliases,...(editorClassificationChanged?{status:$('edit-status').value}:{}),note:$('edit-note').value,tags,categories:[...$('edit-categories').querySelectorAll('input:checked')].map(n=>n.value)});persist();$('editor').close();render();};
 document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>b.closest('dialog').close());
