@@ -87,6 +87,7 @@ function renderFilterChips(filters){
  if($('progress-min').value||$('progress-max').value)add('完成率：'+($('progress-min').value||'0')+'–'+($('progress-max').value||'100')+'%',()=>{$('progress-min').value=$('progress-max').value='';});
  $('filter-chips').replaceChildren();for(const item of items){const chip=el('button',item.text+' ×','filter-chip');chip.type='button';chip.title=item.text;chip.setAttribute('aria-label','移除'+item.text);chip.onclick=()=>{item.clear();page=1;render();};$('filter-chips').append(chip);}
  $('filter-count').textContent=(items.length?'已套用 '+items.length+' 個條件':'未套用篩選')+' · 上方為全庫統計';
+ $('filter-panel-count').textContent=(filters.invalidRange?'完成率區間需修正':items.length?'已套用 '+items.length+' 個條件':'未套用篩選')+(filters.sort!=='name'?' · 已排序':'');
  $('clear-filters').disabled=!items.length&&$('sort').value==='name';$('filter-error').hidden=!filters.invalidRange;
  $('clear-progress-range').disabled=$('progress-min').value===''&&$('progress-max').value==='';
  for(const id of ['progress-min','progress-max'])$(id).setAttribute('aria-invalid',String(filters.invalidRange));
@@ -114,6 +115,7 @@ for(const id of ['search','platform','completion','ownership','status','sort','p
 document.querySelector('.brand').onclick=event=>{event.preventDefault();view='all';category='';page=1;render();};
 $('clear-filters').onclick=()=>{view='all';category='';page=1;resetCatalogControls();render();};
 $('clear-progress-range').onclick=()=>{$('progress-min').value=$('progress-max').value='';page=1;render();};
+for(const id of ['filter-panel','filter-advanced'])$(id).addEventListener('toggle',()=>saveCatalogFilters({view,category}));
 $('prev').onclick=()=>{page--;render();};$('next').onclick=()=>{page++;render();};
 $('select-all').onclick=()=>{shown.forEach(g=>selected.add(g.key));render();};$('clear-selection').onclick=()=>{selected.clear();render();};
 function batch(fn){for(const id of selected)fn(id);const saved=persist();render();if(saved)notice('已更新選取的遊戲。');}

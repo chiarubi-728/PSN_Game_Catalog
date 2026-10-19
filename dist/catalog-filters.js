@@ -47,12 +47,14 @@ export function compareCatalogGames(a,b,sort,recordFor){
   return result||(sort==='name-desc'?-1:1)*a.name.localeCompare(b.name,'zh-Hant')||a.key.localeCompare(b.key);
 }
 export function saveCatalogFilters({view,category},root=document){
-  try{sessionStorage.setItem(storageKey,JSON.stringify({schemaVersion:1,view,category,values:Object.fromEntries(controls.map(id=>[id,root.getElementById(id).value]))}));}catch{}
+  try{sessionStorage.setItem(storageKey,JSON.stringify({schemaVersion:1,view,category,panelOpen:root.getElementById('filter-panel').open,advancedOpen:root.getElementById('filter-advanced').open,values:Object.fromEntries(controls.map(id=>[id,root.getElementById(id).value]))}));}catch{}
 }
 export function restoreCatalogFilters(personal,root=document){
   try{
     const data=JSON.parse(sessionStorage.getItem(storageKey));
     if(data?.schemaVersion!==1||!data.values||typeof data.values!=='object')return {view:'all',category:''};
+    if(typeof data.panelOpen==='boolean')root.getElementById('filter-panel').open=data.panelOpen;
+    if(typeof data.advancedOpen==='boolean')root.getElementById('filter-advanced').open=data.advancedOpen;
     for(const id of controls){let value=data.values[id];const control=root.getElementById(id);if(typeof value!=='string'||value.length>500)continue;if(id==='completion'&&['zero','unplayed','unknown'].includes(value))value='no-progress';if(control.tagName==='SELECT'&&![...control.options].some(option=>option.value===value))continue;control.value=value;}
     if(readCatalogFilters(root).invalidRange)for(const id of ['progress-min','progress-max'])root.getElementById(id).value='';
     const views=new Set(['all','platinum','ignored','tracked']);

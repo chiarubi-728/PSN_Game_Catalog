@@ -17,7 +17,7 @@ export function initHistorySync({getState,setHistory,save,render,notice,isDemo,i
     writable();const previous=getState().history,next=mergeHistory(previous,snapshot);setHistory(next);
     if(!save()){setHistory(previous);throw Error('儲存失敗，遊玩紀錄未寫入。');}
     render();summary();
-    const text=`已匯入 ${snapshot.games.length} 筆${snapshot.provider==='psnprofiles'?' PSNProfiles':' Sony'}遊玩紀錄，包含 ${snapshot.games.filter(game=>game.platinum).length} 筆白金。所有紀錄已加入主清單。${snapshot.coverage==='platinum'?'這份是舊白金資料；請使用 v0.3.0 整合腳本同步完整清單。':''}`;
+    const text=`已匯入 ${snapshot.games.length} 筆${snapshot.provider==='psnprofiles'?' PSNProfiles':' Sony'}遊玩紀錄，包含 ${snapshot.games.filter(game=>game.platinum).length} 筆白金。所有紀錄已加入主清單。${snapshot.coverage==='platinum'?'這份是舊白金資料；請使用 v0.3.1 整合腳本同步完整清單。':''}`;
     say(text);notice(text);pending=null;$('history-account-confirm').hidden=true;
   }
   function receive(raw,expected){

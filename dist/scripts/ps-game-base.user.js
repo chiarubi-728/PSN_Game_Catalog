@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         PS Game Base 遊戲庫
+// @name         PSN Game Catalog
 // @namespace    personal.ps-game-base
-// @version      0.3.0
+// @version      0.3.1
 // @description  線上整合數位遊戲庫、PSNProfiles 全部遊玩紀錄與 Sony 官方中英文名稱。
 // @match        https://library.playstation.com/*
 // @match        https://store.playstation.com/*
@@ -283,10 +283,10 @@
     root = host.attachShadow({ mode: 'closed' });
     const style = el('style', undefined, root);
     style.textContent = ':host{all:initial;color-scheme:dark;font:14px/1.6 system-ui;color:#eef3ff}button,input,select{font:inherit;padding:7px 10px;border:1px solid #586680;border-radius:7px;color:#eef3ff;background:#24324c}button{cursor:pointer}button:disabled{opacity:.45;cursor:default}#launch{position:fixed;right:20px;bottom:20px;z-index:2147483646;background:#164ca5}#panel{position:fixed;right:16px;bottom:72px;z-index:2147483647;width:min(760px,calc(100vw - 32px));max-height:80vh;overflow:auto;background:#121e33;border:1px solid #60789d;border-radius:14px;padding:18px;box-sizing:border-box;box-shadow:0 10px 60px #0008}#panel[hidden]{display:none}h2{margin:0 0 8px}.controls{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}#status{white-space:pre-wrap;color:#bcd3ff}article{display:flex;gap:12px;border-top:1px solid #34425b;padding:12px 0}article img{width:62px;height:62px;object-fit:cover}p{margin:4px 0}small{display:block;overflow-wrap:anywhere;color:#aab9d2}a{color:#8fc5ff}input{min-width:150px;flex:1}';
-    const launch = el('button', 'PS Game Base', root); launch.id = 'launch';
-    const panel = el('section', undefined, root); panel.id = 'panel'; panel.hidden = true; panel.setAttribute('aria-label', 'PS Game Base 遊戲庫');
+    const launch = el('button', 'PSN Game Catalog', root); launch.id = 'launch';
+    const panel = el('section', undefined, root); panel.id = 'panel'; panel.hidden = true; panel.setAttribute('aria-label', 'PSN Game Catalog');
     launch.onclick = () => { panel.hidden = !panel.hidden; render(); };
-    el('h2', 'PS Game Base · 遊戲庫 v0.2.2', panel);
+    el('h2', 'PSN Game Catalog · 遊戲庫 v0.3.1', panel);
     if (bridge) el('p', `由 ${bridge.origin} 開啟：完整同步後，遊戲資料將自動回傳該管理頁供確認。登入憑證不會回傳。`, panel);
     el('p', '僅查詢有效的 PS4／PS5 數位授權，包含免費與 PS Plus。未包含付款紀錄、實體收藏及遊玩時數。權杖與資料僅暫存本分頁，重新整理即清除。', panel);
     const library = el('a', '開啟官方遊戲庫（登入後選「已購買」）', panel); library.href = LIBRARY; library.target = '_blank'; library.rel = 'noopener noreferrer';
@@ -328,7 +328,7 @@ if(location.hostname==='psnprofiles.com'){const initialize=()=>{
   root.append(style);
   const panel = document.createElement('section');root.append(panel);
   function el(tag,text) { const n=document.createElement(tag);n.textContent=text;panel.append(n);return n; }
-  el('h2','PS Game Base · 完整遊玩紀錄 v0.3.0');
+  el('h2','PSN Game Catalog · 完整遊玩紀錄 v0.3.1');
   el('p',bridge ? `將 ${profile} 的全部公開遊戲、獎盃進度與白金狀態傳回 ${origin}。數位版與實體版的遊玩紀錄都會加入主清單，不需逐款配對。` : '請使用全部平台、全部完成狀態並清空搜尋。讀取後可匯出完整遊玩紀錄 JSON，再匯入 Game Base。');
   const status=el('p','準備讀取。');status.setAttribute('role','status');
   const collect=el('button','讀取全部遊戲'), download=el('button','匯出遊玩紀錄 JSON');download.disabled=true;
@@ -447,7 +447,7 @@ if(location.hostname==='psnprofiles.com'){const initialize=()=>{
         games.push({name:title.textContent.trim(),platforms,psnprofilesId:source.id,url:source.url,platinum:earned,progress:progressFor(row),earnedTotal,definedTotal,...(imageUrl?.startsWith('https://')?{imageUrl}:{}),...(region?{region}:{})});
       }
       if(failed.length){
-        diagnostic={kind:'ps-game-base-psnprofiles-diagnostic',schemaVersion:1,scriptVersion:'0.3.0',profile,createdAt:new Date().toISOString(),stage,expectedTotal,pageCount,totalRows:rows.length,parsedRows:games.length,failedRows:failed.length,samples:failed.slice(0,8)};
+        diagnostic={kind:'ps-game-base-psnprofiles-diagnostic',schemaVersion:1,scriptVersion:'0.3.1',profile,createdAt:new Date().toISOString(),stage,expectedTotal,pageCount,totalRows:rows.length,parsedRows:games.length,failedRows:failed.length,samples:failed.slice(0,8)};
         diagnosticButton.disabled=false;const first=failed[0];throw Error(`已辨識 ${games.length} / ${rows.length} 筆；第 ${first.row} 筆「${first.name||'名稱空白'}」：${first.reasons.join('、')}。請按「匯出讀取診斷」提供檔案；目前未匯入不完整清單。`);
       }
       if(new Set(games.map(g=>g.psnprofilesId)).size!==games.length)throw Error('清單有重複紀錄，請重新整理後再試。');
@@ -456,7 +456,7 @@ if(location.hostname==='psnprofiles.com'){const initialize=()=>{
       send('PSGB_HISTORY_RESULT',{payload:snapshot});download.disabled=false;
       if(bridge)setTimeout(()=>{if(!acknowledged)status.textContent=`已讀取 ${games.length} 筆遊戲，但尚未收到 Game Base 保存確認。可按「匯出遊玩紀錄 JSON」，回遊戲庫匯入。`;},5000);
     } catch(e) {
-      if(!diagnostic){const control=moreControl();diagnostic={kind:'ps-game-base-psnprofiles-diagnostic',schemaVersion:1,scriptVersion:'0.3.0',profile,createdAt:new Date().toISOString(),stage,expectedTotal,pageCount,totalRows:gameRows().length,remaining:remainingGames(control),controlText:controlText(control),samples:[],error:String(e.message).slice(0,600)};}
+      if(!diagnostic){const control=moreControl();diagnostic={kind:'ps-game-base-psnprofiles-diagnostic',schemaVersion:1,scriptVersion:'0.3.1',profile,createdAt:new Date().toISOString(),stage,expectedTotal,pageCount,totalRows:gameRows().length,remaining:remainingGames(control),controlText:controlText(control),samples:[],error:String(e.message).slice(0,600)};}
       diagnosticButton.disabled=false;report(e.message);send('PSGB_HISTORY_ERROR',{message:String(e.message).slice(0,500)});
     } finally {busy=false;collect.disabled=false;}
   }
@@ -534,7 +534,7 @@ if(location.hostname==='psnprofiles.com'){const initialize=()=>{
   window.addEventListener('message',async event=>{
     if(event.origin!==location.origin||(event.source!==window&&event.source!==(typeof unsafeWindow==='undefined'?window:unsafeWindow)))return;
     const data=event.data;if(!data||!/^[a-f0-9-]{36}$/i.test(data.requestId||''))return;
-    if(data.type==='PSGB_CATALOG_PING'){reply(data.requestId,{version:'0.3.0',onlineNames:true});return;}
+    if(data.type==='PSGB_CATALOG_PING'){reply(data.requestId,{version:'0.3.1',onlineNames:true});return;}
     if(data.type==='PSGB_CATALOG_CANCEL'){const job=jobs.get(data.requestId);if(job){job.stopped=true;for(const abort of [...job.aborters])abort();}return;}
     if(data.type!=='PSGB_CATALOG_NAMES')return;
     if(jobs.size||!Array.isArray(data.products)||!data.products.length||data.products.length>4||data.products.some(item=>!item||!productPattern.test(item.productId||'')||item.conceptId!==undefined&&!/^\d{1,12}$/.test(item.conceptId))){reply(data.requestId,null,'INVALID_REQUEST');return;}

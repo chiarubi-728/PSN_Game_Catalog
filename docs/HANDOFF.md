@@ -1,3 +1,15 @@
+# 2026-10-19：篩選折疊與腳本改名
+
+基準 HEAD d8cf853，main；開始時工作樹乾淨且與遠端一致。使用者確認整個篩選區塊可折疊，腳本改名 PSN Game Catalog。
+
+篩選外層改用原生 details／summary，預設收起，內含搜尋、排序及更多篩選。標題顯示條件數、排序及無效區間提示；收起不清除條件。原 session 格式新增可選 panelOpen／advancedOpen 布林，舊資料相容，同分頁重新整理記住展開狀態；toggle 只更新 session，不寫遊戲存檔。
+
+整合腳本 @name 改為 PSN Game Catalog，版號 0.3.1；兩個來源面板名稱與顯示版號、前端安裝提示同步更新。namespace、儲存 key、JSON schema、檔案網址及同步協定不變。改名後請確認只保留 PSN Game Catalog 啟用，停用舊 PS Game Base 遊戲庫／獨立 PSNProfiles 腳本，以免重複讀取。
+
+只執行語法與 Git 差異檢查，未新增或執行測試。部署另依 Actions 及線上 HTTP 確認；真實 Tampermonkey 安裝及同步由使用者瀏覽器驗收。
+
+---
+
 # 2026-10-19：完成率區間清除按鈕
 
 基準 HEAD 99ebd3a，main；開始時乾淨並與遠端一致。依使用者要求，在獎盃完成率區間旁新增「清除」，只清空上下限並回第一頁，保留其他篩選。沿用 render 更新清單、條件標籤、錯誤提示與 session；上下限均空時停用按鈕。語法與差異檢查通過，未新增或執行測試。腳本版本維持 v0.3.0，不需重裝。
