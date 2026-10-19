@@ -1,31 +1,23 @@
 import {classificationFor} from './model.js';
-const controls=['search','platform','completion','ownership','provider','membership','status','sort','progress-min','progress-max'];
+const controls=['search','platform','completion','ownership','status','sort','progress-min','progress-max'];
 const storageKey='ps-game-base.filters.v1';
 export function readCatalogFilters(root=document){
   const value=id=>root.getElementById(id).value;
   const rawMin=value('progress-min').trim(),rawMax=value('progress-max').trim();
   const min=rawMin===''?null:Number(rawMin),max=rawMax===''?null:Number(rawMax);
   const invalidRange=[min,max].some(number=>number!==null&&(!Number.isFinite(number)||number<0||number>100))||min!==null&&max!==null&&min>max;
-  return {search:value('search').trim().toLocaleLowerCase(),platform:value('platform'),completion:value('completion'),ownership:value('ownership'),provider:value('provider'),membership:value('membership'),status:value('status'),sort:value('sort'),min,max,invalidRange};
+  return {search:value('search').trim().toLocaleLowerCase(),platform:value('platform'),completion:value('completion'),ownership:value('ownership'),status:value('status'),sort:value('sort'),min,max,invalidRange};
 }
 function completionMatches(game,value){
   if(value==='platinum')return game.platinum;
   if(value==='not-platinum')return game.played&&!game.platinum;
-  if(value==='complete')return game.played&&game.progress===100;
   if(value==='incomplete')return game.played&&game.progress!==null&&game.progress<100;
-  if(value==='platinum-incomplete')return game.platinum&&game.progress!==null&&game.progress<100;
-  if(value==='started')return game.played&&(game.platinum||game.progress>0||game.earnedTotal>0);
-  if(value==='zero')return game.played&&game.progress===0;
-  if(value==='unplayed')return !game.played;
-  if(value==='unknown')return game.played&&game.progress===null;
+  if(value==='no-progress')return !game.played||game.progress===null||game.progress===0;
   return true;
 }
 function ownershipMatches(game,value){
   if(value==='digital')return game.digitalOwned;
-  if(value==='both')return game.digitalOwned&&game.played;
-  if(value==='digital-unplayed')return game.digitalOwned&&!game.played;
   if(value==='history-only')return game.played&&!game.digitalOwned;
-  if(value==='historical')return !!game.digitalMembers.length&&!game.digitalOwned;
   return true;
 }
 function personalMatches(record,value){
@@ -38,9 +30,6 @@ export function matchesCatalogFilters(game,record,filters){
   if(filters.invalidRange)return false;
   if(filters.platform&&!game.platforms.includes(filters.platform))return false;
   if(!completionMatches(game,filters.completion)||!ownershipMatches(game,filters.ownership)||!personalMatches(record,filters.status))return false;
-  if(filters.provider==='both'&&!['psnprofiles','sony'].every(provider=>game.sources.includes(provider)))return false;
-  if(filters.provider&&filters.provider!=='both'&&!game.sources.includes(filters.provider))return false;
-  if(filters.membership&&!game.digitalMembers.some(member=>filters.membership==='UNKNOWN'?!['NONE','PS_PLUS'].includes(member.membership):member.membership===filters.membership))return false;
   if((filters.min!==null||filters.max!==null)&&(game.progress===null||filters.min!==null&&game.progress<filters.min||filters.max!==null&&game.progress>filters.max))return false;
   return !filters.search||[...game.names,...(record.titleAliases||[]),record.note,...record.tags].join(' ').toLocaleLowerCase().includes(filters.search);
 }
@@ -64,9 +53,9 @@ export function restoreCatalogFilters(personal,root=document){
   try{
     const data=JSON.parse(sessionStorage.getItem(storageKey));
     if(data?.schemaVersion!==1||!data.values||typeof data.values!=='object')return {view:'all',category:''};
-    for(const id of controls){const value=data.values[id],control=root.getElementById(id);if(typeof value!=='string'||value.length>500)continue;if(control.tagName==='SELECT'&&![...control.options].some(option=>option.value===value))continue;control.value=value;}
+    for(const id of controls){let value=data.values[id];const control=root.getElementById(id);if(typeof value!=='string'||value.length>500)continue;if(id==='completion'&&['zero','unplayed','unknown'].includes(value))value='no-progress';if(control.tagName==='SELECT'&&![...control.options].some(option=>option.value===value))continue;control.value=value;}
     if(readCatalogFilters(root).invalidRange)for(const id of ['progress-min','progress-max'])root.getElementById(id).value='';
-    const views=new Set(['all','digital','played','unfinished','history-only','platinum','ignored','tracked','missing']);
+    const views=new Set(['all','platinum','ignored','tracked']);
     return {view:views.has(data.view)?data.view:'all',category:personal.categories.includes(data.category)?data.category:''};
   }catch{return {view:'all',category:''};}
 }
