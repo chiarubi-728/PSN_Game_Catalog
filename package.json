@@ -1,0 +1,10 @@
+{
+  "name": "ps-game-base",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test",
+    "psn-helper": "node tools/psn-local-helper.cjs"
+  }
+}
