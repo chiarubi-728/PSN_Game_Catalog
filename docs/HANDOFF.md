@@ -1,3 +1,19 @@
+# 2026-10-19：一個入口，全部在線上
+
+基準 HEAD 05774ba，main；開始時工作樹乾淨。使用者要求減少同步按鈕，並明確要求全部在線上處理。只修改自己的 chiarubi-728/PSN_Game_Catalog。
+
+首頁只留「同步遊戲庫」與「資料管理」。新增 sync-ui.js 協調數位庫 → PSNProfiles 完整紀錄 → 官方名稱查詢。沿用同一個來源分頁、隨機 session、origin 及分頁物件驗證；數位庫純合併自動保存，不寫個人整理。部分失敗保留先前階段，重試從失敗階段開始。
+
+整合腳本 v0.3.0 保留既有 @name／namespace 供更新，加入 PSNProfiles 與自己 Pages 的精確 @match。原生庫觀察器改以 unsafeWindow 取得網頁 fetch／XHR；PSNProfiles 讀取器延至 DOMContentLoaded。請停用舊的獨立 PSNProfiles 腳本。
+
+新增 script-bridge.js，以同頁 origin／source／隨機 requestId 連到整合腳本，僅允許最多 4 個格式受限的公開商品。GM_xmlhttpRequest 只 connect store.playstation.com，anonymous、手動驗證重新導向及固定路徑、2 個並行、請求限時、大小限制、限流停止與取消。原本 Node 公開商品解析器同邏輯內嵌到整合腳本；不使用授權憑證，不依賴 loopback。官方名稱 UI 已移除 localhost API 路徑，名稱對照仍用原格式儲存／備份。
+
+依 Tampermonkey 官方文件實作：[GM_xmlhttpRequest](https://www.tampermonkey.net/documentation.php?q=GM_xmlhttpRequest)、[unsafeWindow](https://www.tampermonkey.net/documentation.php?q=unsafeWindow)。這些文件支持 API 用法，不代表 Sony／Chrome 整輪同步已實測通過。
+
+本次只執行語法、靜態來源與 Git 差異檢查，未新增或執行測試。沒有使用真實登入憑證或私人存檔；整合授權後的頁面 fetch 攔截、跨來源同分頁切換、PSNProfiles 驗證及 GM 商店請求，仍需使用者實際安裝 v0.3.0 後驗收。發布結果另外依 Actions 與線上 HTTP 確認。
+
+---
+
 # 交接紀錄
 
 2026-10-19（Asia/Taipei）。首次發布基準為空儲存庫，目標為 chiarubi-728/PSN_Game_Catalog 的 main。
