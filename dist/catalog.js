@@ -51,6 +51,8 @@ export function catalogRecordFor(personal,work){
 }
 export const catalogPlatinum=work=>work.platinum===true;
 export function catalogView(work,record,view){
+  if(view==='ps-plus')return work.digitalMembers.some(member=>member.membership==='PS_PLUS');
+  if(view==='non-ps-plus')return work.digitalMembers.some(member=>member.membership==='NONE');
   if(view==='unorganized')return !catalogPlatinum(work)&&record.status==='未開始'&&record.categories.length===0;
   if(view==='digital')return work.digitalOwned;
   if(view==='played')return work.played;

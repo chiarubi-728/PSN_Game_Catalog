@@ -44,7 +44,7 @@ function render(){
  $('stat-played-note').textContent=providerName?providerName+' · '+trophyStats.unfinished+' 款尚未白金'+(trophyStats.coverage==='platinum'?'（僅舊白金資料）':''):'同步來源的全部遊玩紀錄';
  const sources=Object.values(state.history?.sources||{});
  $('summary').textContent=demo?'示範模式 · 操作不會寫入你的遊戲庫':sources.length?(state.history.profile+' · 數位授權與 '+sources.map(source=>source.provider==='psnprofiles'?'PSNProfiles':'Sony').join(' / ')+' 遊玩紀錄已合併'+(storageFailed?' · 儲存失敗，請匯出備份':'')):'保留數位遊戲庫，再同步 PSNProfiles 的全部遊玩與獎盃紀錄。';
- const names={all:'所有遊戲',unorganized:'尚未整理',platinum:'白金',ignored:'忽略',tracked:'追蹤'};
+ const names={all:'所有遊戲',unorganized:'尚未整理','ps-plus':'PS Plus','non-ps-plus':'非 PS Plus',platinum:'白金',ignored:'忽略',tracked:'追蹤'};
  $('heading').replaceChildren(el('span',category?names[view]+' · '+category:names[view]),el('small',' / LIBRARY'));
  for(const b of $('views').querySelectorAll('button')){const active=b.dataset.view===view;b.classList.toggle('active',active);b.setAttribute('aria-pressed',String(active));}
  const batchChoice=$('batch-category').value;
@@ -83,7 +83,7 @@ function render(){
 }
 function renderFilterChips(filters){
  const items=[],add=(text,clear)=>items.push({text,clear});
- const names={unorganized:'尚未整理',platinum:'白金',ignored:'忽略',tracked:'追蹤'};
+ const names={unorganized:'尚未整理','ps-plus':'PS Plus','non-ps-plus':'非 PS Plus',platinum:'白金',ignored:'忽略',tracked:'追蹤'};
  if(view!=='all')add('清單：'+names[view],()=>{view='all';});
  if(category)add('分類：'+category,()=>{category='';});
  if($('search').value.trim())add('搜尋：'+$('search').value.trim(),()=>{$('search').value='';});

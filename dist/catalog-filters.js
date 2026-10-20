@@ -57,7 +57,7 @@ export function restoreCatalogFilters(personal,root=document){
     if(typeof data.advancedOpen==='boolean')root.getElementById('filter-advanced').open=data.advancedOpen;
     for(const id of controls){let value=data.values[id];const control=root.getElementById(id);if(typeof value!=='string'||value.length>500)continue;if(id==='completion'&&['zero','unplayed','unknown'].includes(value))value='no-progress';if(control.tagName==='SELECT'&&![...control.options].some(option=>option.value===value))continue;control.value=value;}
     if(readCatalogFilters(root).invalidRange)for(const id of ['progress-min','progress-max'])root.getElementById(id).value='';
-    const views=new Set(['all','unorganized','platinum','ignored','tracked']);
+    const views=new Set(['all','unorganized','ps-plus','non-ps-plus','platinum','ignored','tracked']);
     return {view:views.has(data.view)?data.view:'all',category:personal.categories.includes(data.category)?data.category:''};
   }catch{return {view:'all',category:''};}
 }
