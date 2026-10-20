@@ -1,3 +1,13 @@
+# 2026-10-20：修正商標符號導致官方英文名稱配對失敗
+
+基準 HEAD 9e4dacf，main；開始時乾淨並與 origin/main 一致。使用者提供兩張 PS5 卡片：數位庫「浪人崛起」官方名稱顯示 Rise of the RoninTM，PSNProfiles 為 Rise of the Ronin，未能合併。
+
+原因在 store-names.js 的 cleanStoreTitle：先 normalize('NFKC') 再移除 ™，但 NFKC 已將 ™ 展開成普通 TM 字母，所以 titleMatch 無法匹配。調整為先移除商標符號，再做 NFKC，與 titleKey 的順序一致。依現有資料流程，官方名稱快取與匯入都保存 Sony 原文，officialNamesFor 每次 render 清理，因此重新整理即會重算，不需重新同步或更新腳本。未加入此遊戲的硬編碼別名，也未將任意 TM 字母刪除，避免破壞實際名稱。
+
+仍遵守相同平台、區域與唯一候選規則，並保留來源獎盃 ID、進度和個人整理。僅做 JavaScript 語法與 Git 差異檢查，未新增或執行測試；未取得使用者當前存檔做實際配對驗收，發布以 Actions／HTTP 確認。
+
+---
+
 # 2026-10-20：尚未整理加入排除選項
 
 基準 HEAD 4598c09，main；開始時乾淨並與 origin/main 一致。使用者要求「尚未整理」也有排除已分類選項。

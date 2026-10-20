@@ -39,7 +39,8 @@ export function storeNameRequests(library,data,{retryFailed=false}={}){
 }
 const languages=new Set(['english','japanese','korean','chinese','simplified chinese','traditional chinese','french','german','spanish','italian','portuguese','russian','polish','arabic','dutch','turkish','czech','hungarian','thai','indonesian','vietnamese','brazilian portuguese','portuguese (brazil)','french (france)','spanish (mexico)','中文','繁體中文','簡體中文','英文','日文','韓文','法文','德文','義大利文','西班牙文','俄文','葡萄牙文']);
 export function cleanStoreTitle(value){
-  let title=value.normalize('NFKC').replace(/[™®]/g,'').trim();
+  // Remove trademarks before NFKC turns ™ into the literal letters "TM".
+  let title=value.replace(/[™®]/g,'').normalize('NFKC').trim();
   title=title.replace(/\(([^()]*)\)\s*$/, (full,body)=>{const tokens=body.split(/[,，、/]+/).map(token=>token.trim().toLowerCase());return tokens.length&&tokens.every(token=>languages.has(token))?'':full;}).trim();
   title=title.replace(/\s*PS[345](?:\s*(?:&|\/|\||and|及|、)\s*PS[345])*(?:\s+(?:Version|Edition)|\s*版本)?\s*$/i,'').trim();
   if(/^《.+》$/.test(title)||/^「.+」$/.test(title))title=title.slice(1,-1).trim();
