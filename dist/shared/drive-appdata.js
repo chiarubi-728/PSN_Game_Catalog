@@ -3,13 +3,14 @@
  'use strict';
  class DriveError extends Error {constructor(message,code='drive'){super(message);this.code=code;}}
  class DriveAppData {
-  constructor(auth,fileName){this.auth=auth;this.fileName=fileName;}
+  constructor(auth,fileName){this.auth=auth;this.fileName=fileName;this.createId=null;}
   async request(url,options={}){
    const token=this.auth.token(),controller=new AbortController(),timer=setTimeout(()=>controller.abort(),20000);
    try{
     const response=await fetch(url,{...options,cache:'no-store',signal:controller.signal,headers:{...options.headers,Authorization:'Bearer '+token}});
     if(response.status===401){this.auth.invalidate();throw new DriveError('Google 授權已失效，請重新授權。','expired');}
     if(response.status===412)throw new DriveError('雲端進度已變更，請重新下載比較後再操作。','conflict');
+    if(response.status===409)throw new DriveError('雲端檔案已建立，正在重新確認版本。','conflict');
     if(!response.ok)throw new DriveError(response.status===403?'Drive 拒絕存取，請確認授權權限及 Drive API 設定。':response.status===429?'Drive 請求過於頻繁，請稍後重試。':`Drive 請求失敗（${response.status}），本機進度仍保留。`,response.status===403?'permission':'drive');
     // Read the body before clearing the timeout; stalled downloads also time out.
     return {text:await response.text(),etag:response.headers.get('ETag')};
@@ -27,17 +28,22 @@
     files.push(...data.files);pageToken=data.nextPageToken;
    }while(pageToken);
    if(files.length>1)throw new DriveError('雲端有多份同名進度，已停止操作以避免覆蓋。請先處理重複檔案。','duplicate');
+   if(files.length===1)this.createId=null;
    return files[0]||null;
   }
   async metadata(id){return this.json(await this.request('https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(id)+'?fields=id,name,version,modifiedTime,size'));}
-  async read(){
+  async read(cached=null){
    const file=await this.find();if(!file)return null;
    if(Number(file.size)>5*1024*1024)throw new DriveError('雲端進度超過 5 MB，已停止下載。','invalid');
+   if(cached?.file?.id===file.id&&cached.file.version===file.version)return cached;
+   const before=await this.request('https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(file.id)+'?fields=id,name,version,modifiedTime,size');
+   const initial=this.json(before);
+   if(initial.version!==file.version)throw new DriveError('讀取期間雲端已變更，請重試。','conflict');
    const media=await this.request('https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(file.id)+'?alt=media');
    if(media.text.length>5*1024*1024)throw new DriveError('雲端进度檔案太大。','invalid');
    const latest=await this.metadata(file.id);
    if(latest.version!==file.version)throw new DriveError('下載期間雲端已變更，請再下載一次。','conflict');
-   return {file:latest,etag:media.etag,value:this.json(media)};
+   return {file:latest,etag:before.etag||media.etag,value:this.json(media)};
   }
   async write(value,expected){
    const current=await this.find();
@@ -47,8 +53,14 @@
     if(!expected.etag)throw new DriveError('無法取得雲端版本保護資訊，已暫停同步以避免覆蓋。','invalid');
     await this.request('https://www.googleapis.com/upload/drive/v3/files/'+encodeURIComponent(current.id)+'?uploadType=media',{method:'PATCH',headers:{'Content-Type':'application/json',...(expected.etag?{'If-Match':expected.etag}:{})},body});
    }else{
+    // Retry an uncertain first upload with the same ID instead of duplicating it.
+    if(!this.createId){
+     const generated=this.json(await this.request('https://www.googleapis.com/drive/v3/files/generateIds?count=1&space=appDataFolder&type=files'));
+     if(!Array.isArray(generated.ids)||generated.ids.length!==1||!/^[A-Za-z0-9_-]+$/.test(generated.ids[0]))throw new DriveError('無法建立雲端備份 ID。','invalid');
+     this.createId=generated.ids[0];
+    }
     const boundary='sideproject_'+crypto.randomUUID().replaceAll('-','');
-    const metadata={name:this.fileName,mimeType:'application/json',parents:['appDataFolder']};
+    const metadata={id:this.createId,name:this.fileName,mimeType:'application/json',parents:['appDataFolder']};
     const multipart=`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n--${boundary}\r\nContent-Type: application/json\r\n\r\n${body}\r\n--${boundary}--`;
     await this.request('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{method:'POST',headers:{'Content-Type':'multipart/related; boundary='+boundary},body:multipart});
    }

@@ -88,3 +88,6 @@ details{border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin:
 
 /* Name search within the current library view. */
 .catalog-search{margin-top:24px}.catalog-search>label{display:block;font-size:11px;color:#9fadc4;margin-bottom:7px}.catalog-search-controls{display:flex;align-items:stretch;gap:10px}.catalog-search-controls input{flex:1;min-width:0;width:100%;font-size:12px}.catalog-search-controls button{flex:none;font-size:12px;white-space:nowrap}.catalog-search+.membership-options{margin-top:16px}
+
+/* Persistent cloud status and explicit conflict resolution. */
+.cloud-status-line{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:16px}.cloud-status-line p{font-size:11px;color:#91a6c2;margin:0;line-height:1.7}.cloud-status-line button{font-size:11px;white-space:nowrap;padding:6px 10px}#cloud-summary[data-state=synced]{color:#9fd0b2}#cloud-summary[data-state=pending],#cloud-summary[data-state=syncing]{color:#a9c8e9}#cloud-summary[data-state=conflict],#cloud-summary[data-state=error],#cloud-summary[data-state=blocked]{color:#e7b888}.cloud-conflict{border:1px solid #8e6d46;border-radius:8px;padding:14px;margin-top:18px;background:#392b1d33}.cloud-conflict h3{margin-top:0}#cloud-client-id{width:100%}

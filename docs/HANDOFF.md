@@ -1,3 +1,27 @@
+# 2026-10-20：授權備份後發布自動雲端同步
+
+使用者已將「先不要 push」改為「乾脆 push，但先做好備份」，允許本次推送與 Pages 發布。基準 HEAD 645fc84，與 origin/main 一致。
+
+發布前備份存於 outputs/backups/20261020-174410：正式版 git archive ZIP、完整 repository bundle（已通過 git bundle verify）、本機修改的 dist／docs／README 草稿 ZIP，以及含 SHA-256 的 backup-manifest.json。建立 annotated tag backup/before-auto-cloud-20261020-174410，指向舊正式版，與 main 一起推送。這些是程式及 Git 歷史備份；使用者實際遊戲資料在其瀏覽器，工具能存取的正式站分頁為空資料，未把空白匯出當作其私人資料備份。發布保留原 localStorage key 與備份 schema，雲端操作需使用者主動連接。另加入每個瀏覽器首次開啟新版時的原始存檔快照，讀取前以 RELEASE_BACKUP_KEY=ps-game-base.before-auto-cloud.645fc84 保存一次；資料管理可匯出更新前備份，空間不足時先暫停雲端，直到使用者匯出完整備份。此原始副本只在原瀏覽器，尚不是已下載至磁碟的私人資料備份。
+
+使用者在本機授權實際遇到 origin_mismatch，原因為參考專案 Client ID 未允許來源。發布時移除原專案預設值，未設定自己的公開 Client ID 前顯示待設定並停用 Google 連接。不能聲稱 push 即修好 Google OAuth；仍需擁有者建立／允許正式來源 https://chiarubi-728.github.io，並完成真實 Drive 讀寫驗收。此設定在瀏覽器保存，未發布私人資料或權杖。
+
+自動同步實作詳見下一筆交接與 docs/CLOUD_SYNC.md。僅做語法與靜態來源／Git 差異檢查，未新增或執行測試。發布完成另依精確 commit 的 Actions／HTTP 檢查。
+
+---
+
+# 2026-10-20：Google Drive 自動同步本機草稿，禁止 push
+
+基準 HEAD 645fc84，main；使用者明確要求「自動同步先試試，先不要 push」。所有修改留在本機，未 commit／push／部署。保留正式版線上狀態。
+
+新增 dist/cloud-sync.js，把原 app 內手動上下載改為連接後自動比較快照與修改佇列。獨立 META 儲存最後同步雜湊、Google sub 及 OAuth client 綁定；原遊戲 schema／備份不變。persist 通知變更，套用雲端用 fromCloud 抑制回圈。完整載入採整份替換，保留分類刪除；只有單邊變更自動套用，雙邊變更／首次兩份不同資料／換帳號／雲端刪除時選擇版本，切換前先存兩份可匯出的本機復原備份。
+
+主畫面常駐雲端狀態，資料管理提供連接、立即同步、衝突選擇、備份匯出及公開 Client ID 設定。連接後 1.4 秒 debounce、前景 30 秒檢查、online／focus 重試，已驗證遠端快取避免重複下載。版本、ETag、上傳讀回、請求串行與本機 revision 保護競態；網路錯誤最多四次退避。GoogleAuth 新增 sub／email 識別，權杖不落盤。讀取錯誤、跨分頁、示範模式、正在編輯／來源同步及儲存失敗有保護。
+
+Google Token 模式仍需有效授權；重新開網站／授權過期後可能要重新連接。預設 Client ID 仍為參考專案來源，必須以自己的專案允許正式／本機來源再做真實驗收；此草稿不能宣稱已實際同步。完整設定及限制見 docs/CLOUD_SYNC.md。只做語法與靜態差異檢查，未新增或執行測試，未讀寫使用者雲端資料。
+
+---
+
 # 2026-10-20：新增獨立遊戲名稱搜尋欄
 
 基準 HEAD 376a977，main；開始時乾淨並與 origin/main 一致。使用者要求搜尋欄以直接尋找特定遊戲。

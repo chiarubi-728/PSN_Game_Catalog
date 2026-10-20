@@ -8,17 +8,20 @@ import {initStoreNames} from './store-names-ui.js';
 import {classificationOptions, classificationFor, matchesClassification, library, personal, emptyPersonal, blankRecord, workRecordFor, hasWorkConflicts, platformGames as groupGames, needsPlatformPlatinumReview, matchesWorkFilters, mergeLibrary, parseImport} from './model.js';
 import {icon} from './icons.js';
 import {titleKey} from './title-aliases.js';
+import {initCloudSync} from './cloud-sync.js';
 
-const $ = id => document.getElementById(id), KEY = 'ps-game-base.v1';
+const $ = id => document.getElementById(id), KEY = 'ps-game-base.v1', RELEASE_BACKUP_KEY='ps-game-base.before-auto-cloud.645fc84';
 let state = {library:{schemaVersion:1,complete:false,syncedAt:null,games:[],missingIds:[]},personal:emptyPersonal(),history:emptyHistory(),storeNames:emptyStoreNames()}, view='all', category='', page=1, selected=new Set(), shown=[], pendingImport=null, demo=false;
-let cloudExpected, cloudRead=false, cloudBusy=false, prepared=false;
-let works = new Map(),namesSync=null,unifiedSync=null;
+let works = new Map(),namesSync=null,unifiedSync=null,cloudSync=null;
+let localLoadFailed=false,releaseBackupFailed=false;
 const exclusionSettings={unorganized:true,membership:false};
 function exclusionContext(){if(category)return null;if(view==='unorganized')return 'unorganized';return view==='ps-plus'||view==='non-ps-plus'?'membership':null;}
 function notice(message) { $('notice').textContent=message; $('notice').classList.add('visible'); clearTimeout(notice.timer); notice.timer=setTimeout(()=>$('notice').classList.remove('visible'),8000); }
-try { const raw=localStorage.getItem(KEY); if(raw){const data=JSON.parse(raw);state={library:{...library(data.library),missingIds:Array.isArray(data.library.missingIds)?data.library.missingIds:[]},personal:personal(data.personal),history:readHistory(data.history),storeNames:readStoreNames(data.storeNames)};} } catch(e) { notice('無法載入本機資料：'+e.message+'。原始存檔未被自動覆寫，請先備份瀏覽器資料。'); }
+// Preserve the exact pre-upgrade save once, before parsing or cloud activity.
+try{const original=localStorage.getItem(KEY);if(original&&!localStorage.getItem(RELEASE_BACKUP_KEY))localStorage.setItem(RELEASE_BACKUP_KEY,JSON.stringify({savedAt:new Date().toISOString(),value:original}));}catch{releaseBackupFailed=true;notice('更新前資料備份失敗，雲端同步已暫停；請先匯出完整備份。');}
+try { const raw=localStorage.getItem(KEY); if(raw){const data=JSON.parse(raw);state={library:{...library(data.library),missingIds:Array.isArray(data.library.missingIds)?data.library.missingIds:[]},personal:personal(data.personal),history:readHistory(data.history),storeNames:readStoreNames(data.storeNames)};} } catch(e) { localLoadFailed=true;notice('無法載入本機資料：'+e.message+'。原始存檔未被自動覆寫，請先備份瀏覽器資料。'); }
 let storageFailed=false, externalChanged=false;
-function persist(){if(demo)return true;if(externalChanged){storageFailed=true;notice('另一分頁已有新版本，已停止寫入。請匯出此頁備份，再重新整理，避免覆蓋新資料。');return false;}try{localStorage.setItem(KEY,JSON.stringify(state));storageFailed=false;return true;}catch{storageFailed=true;notice('瀏覽器儲存失敗！目前變更只在此分頁，請立即匯出備份。');return false;}}
+function persist({fromCloud=false}={}){if(demo)return true;if(externalChanged){storageFailed=true;notice('另一分頁已有新版本，已停止寫入。請匯出此頁備份，再重新整理，避免覆蓋新資料。');return false;}try{localStorage.setItem(KEY,JSON.stringify(state));storageFailed=false;if(!fromCloud)cloudSync?.changed();return true;}catch{storageFailed=true;notice('瀏覽器儲存失敗！目前變更只在此分頁，請立即匯出備份。');return false;}}
 function el(tag,text,className){const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(className)n.className=className;return n;}
 function option(select,value,label){const n=el('option',label??value);n.value=value;select.append(n);}
 for(const item of classificationOptions){const label=el('label',undefined,'status-choice'),input=el('input'),visual=el('span',undefined,'status-option');input.type='radio';input.name='classification';input.value=item.value;visual.dataset.tone=item.tone;visual.append(icon(item.icon),el('span',item.label));label.append(input,visual);$('edit-classifications').append(label);input.onchange=()=>{if(input.checked)setEditorStatus(input.value);};}
@@ -81,7 +84,7 @@ function render(){
   if(g.missingCount)body.append(el('p','部分或全部數位授權未出現在最近完整同步','missing'));
   card.append(body);$('grid').append(card);
  }
- $('result-count').textContent=filtered.length+' / '+games.length+' 張遊戲／平台卡片 · '+filtered.reduce((count,g)=>count+g.digitalMembers.length,0)+' 筆數位授權'+(selected.size?' · 已選 '+selected.size+' 張':'');$('page-label').textContent=page+' / '+pages;$('prev').disabled=page===1;$('next').disabled=page===pages;renderBatch();$('reset-demo').hidden=!demo;unifiedSync?.refresh();
+ $('result-count').textContent=filtered.length+' / '+games.length+' 張遊戲／平台卡片 · '+filtered.reduce((count,g)=>count+g.digitalMembers.length,0)+' 筆數位授權'+(selected.size?' · 已選 '+selected.size+' 張':'');$('page-label').textContent=page+' / '+pages;$('prev').disabled=page===1;$('next').disabled=page===pages;renderBatch();$('reset-demo').hidden=!demo;unifiedSync?.refresh();cloudSync?.refresh();
 }
 function renderBatch(){$('batch').hidden=!selected.size;$('selected-count').textContent=`已選 ${selected.size} 款遊戲`;$('apply-category').disabled=!selected.size||!$('batch-category').value;}
 function quickClassifications(game,status){
@@ -132,19 +135,21 @@ function preview(data,source){
 }
  $('import').onclick=$('empty-import').onclick=()=>$('file').click();$('file').onchange=async()=>{try{const file=$('file').files[0];if(!file)return;if(file.size>15*1024*1024)throw Error('JSON 檔案上限為 15 MB。');preview(parseImport(JSON.parse(await file.text())),file.name);}catch(e){notice('匯入失敗：'+e.message);}finally{$('file').value='';}};
  $('confirm-import').onclick=()=>{if(!pendingImport)return;const previous=state;try{const {data}=pendingImport,next=structuredClone(state);if(data.library){next.library=mergeLibrary(next.library,data.library);if(data.missingIds)next.library.missingIds=data.missingIds.filter(id=>next.library.games.some(g=>g.entitlementId===id));}if(data.personal)next.personal=data.personal;if(data.history)for(const snapshot of Object.values(data.history.sources))next.history=mergeHistory(next.history,snapshot);if(data.storeNames)next.storeNames=mergeStoreNames(next.storeNames,data.storeNames);state=next;if(!persist()){state=previous;return;}selected.clear();category='';page=1;render();pendingImport=null;$('confirm-dialog').close();notice('已合併遊戲資料；個人整理依預覽處理。');}catch(error){state=previous;notice('匯入失敗：'+error.message);}};
-$('export-library').onclick=()=>{const value=library(state.library),missing=new Set(state.library.missingIds||[]);value.games=value.games.filter(g=>!missing.has(g.entitlementId));download(value,'library');};$('export-personal').onclick=()=>download(state.personal,'personal');$('export-backup').onclick=()=>download(backup(),'backup');
-const auth=new window.SideProjectAuth.GoogleAuth('260923931716-cevi1vcfrfoibmn3i2fdpsn1epg7hr3g.apps.googleusercontent.com',renderCloud),drive=new window.SideProjectDrive.DriveAppData(auth,'ps-game-base.json');
-function renderCloud(){const connected=auth?.connected;for(const id of ['cloud-read','cloud-write','cloud-disconnect'])$(id).disabled=!connected||cloudBusy;$('cloud-connect').disabled=cloudBusy||connected;$('cloud-connect').textContent=prepared?'連接 Google Drive':'載入 Google 授權服務';$('cloud-state').textContent=connected?`已授權 · ${cloudRead?'已讀取雲端版本，可以上傳':'請先下載確認雲端版本'}`:'尚未連接或授權已過期。';}
-async function cloudAction(action){if(demo)return notice('示範模式不執行雲端同步。');cloudBusy=true;renderCloud();try{await action();}catch(e){notice(e.message);}finally{cloudBusy=false;renderCloud();}}
-$('cloud-connect').onclick=()=>cloudAction(async()=>{if(!prepared){await auth.prepare();prepared=true;notice('授權服務已就緒，請再次點擊「連接 Google Drive」。');}else{await auth.connect();cloudRead=false;cloudExpected=undefined;}});
-$('cloud-disconnect').onclick=()=>{auth.disconnect();cloudRead=false;cloudExpected=undefined;renderCloud();};
-$('cloud-read').onclick=()=>cloudAction(async()=>{const result=await drive.read();if(!result){cloudExpected=null;cloudRead=true;return notice('雲端尚無備份，可以上傳本機資料。');}const data=parseImport(result.value);if(!data.personal||!data.library)throw Error('雲端檔案不是完整遊戲庫備份。');cloudExpected=result;cloudRead=true;preview(data,'Google Drive');});
-$('cloud-write').onclick=()=>cloudAction(async()=>{if(!cloudRead)throw Error('請先下載並預覽，確認雲端版本後再上傳。');if(!confirm('將目前本機完整備份上傳至 Google Drive？雲端舊內容將被取代。'))return;const value=backup();if(new Blob([JSON.stringify(value)]).size>5*1024*1024)throw Error('備份超過 5 MB，請改用本機 JSON 匯出。');await drive.write(value,cloudExpected);cloudRead=false;cloudExpected=undefined;notice('已上傳備份；再次上傳前請重新下載確認版本。');});
+$('export-library').onclick=()=>{const value=library(state.library),missing=new Set(state.library.missingIds||[]);value.games=value.games.filter(g=>!missing.has(g.entitlementId));download(value,'library');};$('export-personal').onclick=()=>download(state.personal,'personal');$('export-backup').onclick=()=>{download(backup(),'backup');if(releaseBackupFailed){releaseBackupFailed=false;cloudSync?.refresh();notice('已送出完整備份下載，確認保存後可連接雲端。');}};
 let realState;
 $('demo').onclick=()=>{realState=structuredClone(state);demo=true;state={library:{schemaVersion:1,complete:true,syncedAt:null,missingIds:[],games:['ASTRO BOT','Ghost of Yōtei','DEATH STRANDING 2','FINAL FANTASY VII REBIRTH','ELDEN RING','Horizon Forbidden West','God of War Ragnarök','It Takes Two'].map((name,i)=>({name,entitlementId:'demo-'+i,conceptId:'demo-concept-'+i,platform:i===7?'PS4':'PS5',membership:i%3===0?'PS_PLUS':'NONE'}))},personal:emptyPersonal()};for(const index of [4,5])state.library.games.push({...state.library.games[index],entitlementId:'demo-ps4-'+index,platform:'PS4'});state.personal.categories=['週末雙人','劇情精選','挑戰清單'];state.library.games.forEach((g,i)=>{state.personal.records[g.entitlementId]={...blankRecord(),status:['未開始','想玩','已白金','不再遊玩'][i%4],categories:i%2===0?['劇情精選']:[]};});render();notice('正在探索示範；不會寫入本機或雲端。');};
 $('reset-demo').onclick=()=>{if(!demo)return;state=realState;demo=false;selected.clear();category='';view='all';render();notice('已返回你的遊戲庫。');};
-window.addEventListener('storage',event=>{if(event.key===KEY){externalChanged=true;notice('另一個分頁已更新遊戲庫。已停止此頁寫入，請先匯出此頁備份，再重新整理載入最新資料。');}});
-render();renderCloud();
+window.addEventListener('storage',event=>{if(event.key===KEY){externalChanged=true;notice('另一個分頁已更新遊戲庫。已停止此頁寫入，請先匯出此頁備份，再重新整理載入最新資料。');cloudSync?.refresh();}});
+render();
+
+$('export-before-update').onclick=()=>{
+ try{
+  const raw=localStorage.getItem(RELEASE_BACKUP_KEY);if(!raw)return notice('這個瀏覽器沒有更新前的遊戲庫資料。');
+  const saved=JSON.parse(raw),original=JSON.parse(saved.value);
+  try{download({schemaVersion:1,kind:'ps-game-base-backup',exportedAt:saved.savedAt,library:library(original.library),missingIds:original.library.missingIds||[],personal:personal(original.personal),history:readHistory(original.history),storeNames:readStoreNames(original.storeNames)},'before-auto-cloud');}
+  catch{download(saved,'before-auto-cloud-original');notice('原存檔格式無法轉換，已匯出原始資料供復原。');}
+ }catch(error){notice('更新前備份匯出失敗：'+error.message);}
+};
 
 const historySync=initHistorySync({getState:()=>state,setHistory:value=>{state.history=value;},save:persist,render,notice,isDemo:()=>demo,isBlocked:()=>externalChanged});
 
@@ -152,4 +157,16 @@ namesSync=initStoreNames({getState:()=>state,setNames:value=>{state.storeNames=v
 unifiedSync=initUnifiedSync({historySync,getState:()=>state,isDemo:()=>demo,isBlocked:()=>externalChanged,notice,
  syncNames:options=>namesSync.start(options),cancelNames:()=>namesSync.cancel(),
  saveLibrary:raw=>{if(demo||externalChanged)throw Error('目前無法儲存，請重新整理後再同步。');const incoming=library(raw);if(!incoming.complete)throw Error('數位遊戲庫尚未完整讀取，未套用部分結果。');const previous=state.library;state.library=mergeLibrary(previous,incoming);if(!persist()){state.library=previous;throw Error('儲存失敗，已停止同步；請先匯出備份。');}render();return incoming.games.length;}
+});
+
+cloudSync=initCloudSync({
+ getSnapshot:backup,isDemo:()=>demo,isBlocked:()=>externalChanged||storageFailed||localLoadFailed||releaseBackupFailed,
+ isEditing:()=>!!unifiedSync?.busy||$('history-fetch').disabled||['editor','category-dialog','confirm-dialog'].some(id=>$(id).open),notice,
+ applySnapshot:raw=>{
+  if(demo||externalChanged||storageFailed||localLoadFailed||releaseBackupFailed)throw Error('此裝置目前無法載入雲端資料，請先匯出備份。');
+  const data=parseImport(raw),previous=state;
+  state={library:{...data.library,missingIds:data.missingIds},personal:data.personal,history:data.history,storeNames:data.storeNames};
+  if(!persist({fromCloud:true})){state=previous;throw Error('雲端資料無法儲存，本機原資料保留。');}
+  selected.clear();page=1;if(category&&!state.personal.categories.includes(category))category='';renderCategories();render();
+ }
 });

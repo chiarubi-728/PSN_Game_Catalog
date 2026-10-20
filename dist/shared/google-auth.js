@@ -1,7 +1,7 @@
 // Reusable GIS Token Flow. Tokens exist only in this instance's memory.
 (function(global){
  'use strict';
- const scope='https://www.googleapis.com/auth/drive.appdata';
+ const scopes=['https://www.googleapis.com/auth/drive.appdata','openid','https://www.googleapis.com/auth/userinfo.email'],scope=scopes.join(' ');
  class AuthError extends Error {constructor(message,code='auth'){super(message);this.code=code;}}
  let loading;
  function loadGIS(){
@@ -26,7 +26,7 @@
     callback:r=>{
      if(!this.#pending)return;
      if(r.error||!r.access_token)return this.#finish(new AuthError('Google 授權未完成，請重新連接。','denied'));
-     if(!global.google.accounts.oauth2.hasGrantedAllScopes(r,scope))return this.#finish(new AuthError('未授予 Drive 應用程式資料權限。','scope'));
+     if(!global.google.accounts.oauth2.hasGrantedAllScopes(r,...scopes))return this.#finish(new AuthError('請允許 Google 帳號識別與 Drive 應用程式資料權限。','scope'));
      const lifetime=Number(r.expires_in);if(!Number.isFinite(lifetime)||lifetime<=0)return this.#finish(new AuthError('Google 授權期限無效，請重新連接。'));
      this.#token=r.access_token;this.#expires=Date.now()+lifetime*1000;
      this.#timer=setTimeout(()=>this.invalidate(),Math.min(lifetime*1000,2147483647));
@@ -47,6 +47,18 @@
   #finish(error){const p=this.#pending;if(!p)return;clearTimeout(p.timer);this.#pending=null;error?p.reject(error):p.resolve();}
   get connected(){return !!this.#token&&Date.now()<this.#expires;}
   token(){if(!this.connected){this.invalidate();throw new AuthError('Google 授權已過期，請重新授權。','expired');}return this.#token;}
+  async profile(){
+   const token=this.token(),controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15000);
+   try{
+    const response=await fetch('https://openidconnect.googleapis.com/v1/userinfo',{cache:'no-store',signal:controller.signal,headers:{Authorization:'Bearer '+token}});
+    if(response.status===401){this.invalidate();throw new AuthError('Google 授權已過期，請重新連接。','expired');}
+    if(!response.ok)throw new AuthError('無法確認 Google 帳號，未啟動雲端同步。','identity');
+    const data=await response.json();
+    if(token!==this.#token)throw new AuthError('Google 連接已變更。','cancelled');
+    if(typeof data.sub!=='string'||!data.sub||typeof data.email!=='string'||!data.email)throw new AuthError('Google 帳號識別資料不完整，未啟動雲端同步。','identity');
+    return {sub:data.sub,email:data.email};
+   }finally{clearTimeout(timer);}
+  }
   invalidate(){clearTimeout(this.#timer);this.#token='';this.#expires=0;this.onChange();}
   disconnect(){this.#finish(new AuthError('已取消連接。','cancelled'));this.invalidate();}
  }
