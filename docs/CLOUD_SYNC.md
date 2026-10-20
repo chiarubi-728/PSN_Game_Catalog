@@ -1,20 +1,20 @@
 # Google 雲端自動同步（試用）
 
-使用者已授權在完成程式備份後發布。功能需先設定自己的 Google OAuth Client ID，目前仍待完成實際 Google Drive 讀寫驗收。更新前程式版本為 645fc84，備份標籤 backup/before-auto-cloud-20261020-174410；可用來回復。
+使用者已授權在完成程式備份後發布。網站已使用擁有者提供的公開 Google OAuth Client ID，使用者直接按 Google 登入。使用者已回報修正專案選擇並啟用 Drive API 後可繼續；完整跨裝置與衝突流程仍待真實驗收。更新前程式版本為 645fc84，備份標籤 backup/before-auto-cloud-20261020-174410；可用來回復。
 
 ## 使用流程
 
 1. 原有正式網站的瀏覽器存檔沿用，使用雲端前仍可從資料管理匯出完整備份。
-2. 主畫面點「雲端設定」。若使用本機預覽，資料與正式網站分開，需先匯入備份。
-3. 在「復原備份與授權設定」填入自己的公開 OAuth Client ID，儲存後連接 Google。第一次授權就緒前可能需再按一次連接。
+2. 主畫面按「Google 登入」並選擇自己的帳號；第一次載入 Google 授權尚未就緒時可能需再按一次。
+3. 新裝置與朋友不需填 Client ID。若使用本機預覽，資料與正式網站分開，可先匯入備份。登入後的「雲端設定」可檢查狀態。
 4. 連接後自動讀取雲端及儲存修改，等主畫面顯示「已同步至雲端」後離開。
 5. 其他裝置使用同一應用程式、同一 Google 帳號，連接後自動載入。使用者已在兩邊各自修改時，先選擇要保留的整份版本。
 
-## 一次性的 Google 設定
+## 網站擁有者與自架網站的 Google 設定
 
 由專案擁有者在 Google Cloud 專案啟用 Google Drive API、設定 OAuth 同意畫面，並建立類型為「網頁應用程式」的 OAuth Client ID。將正式來源 https://chiarubi-728.github.io 加入 Authorized JavaScript origins。本機預覽使用的來源也需另行加入，例如 http://localhost:4180。OAuth 應用程式仍在測試狀態時，需將使用者加入測試名單。
 
-網站「雲端設定 → 復原備份與授權設定」只填公開 Client ID，不需要也不應填 Client Secret。此欄設定只保存在這個瀏覽器，新裝置也需填入同一 Client ID。已移除參考專案的預設值，避免再次遇到 origin_mismatch；未設定時不會啟動 Google 授權。若希望所有裝置免填，完成驗收後可將自己的公開 Client ID 設為網站預設。更換 OAuth 應用程式／Google Cloud 專案可能切換 Drive 的應用程式資料空間，需透過完整備份搬移；不要假設更換後仍能讀到參考專案的備份。
+網站「雲端設定 → 復原備份與授權設定」只填公開 Client ID，不需要也不應填 Client Secret。正式網站已將擁有者提供的公開 Client ID 設為 DEFAULT_CLIENT，新裝置直接採用。該欄位改為選填的自訂覆寫，僅自架網站或進階需求使用，覆寫值只存在此瀏覽器；已有有效覆寫不會自動更換，避免無意切換應用程式資料空間。更換 OAuth 應用程式／Google Cloud 專案可能切換 Drive 的應用程式資料空間，需透過完整備份搬移；不要假設更換後仍能讀到參考專案的備份。
 
 要求的權限只有 Drive 應用程式資料、Google 帳號 ID 與電子郵件。權杖只在記憶體，不寫入 localStorage、備份或 Git。Google sub 與 OAuth 應用程式用來辨識同步基準，避免連接另一個帳號後直接上傳。
 
@@ -31,9 +31,11 @@
 
 ## 驗收狀態
 
-已做 JavaScript 語法、靜態來源閱讀及 Git 差異檢查。未新增或執行測試，也未實際取得 Google 授權或讀寫使用者的 Drive。本機畫面已透過瀏覽器確認可載入；使用者在原預設 Client ID 遇到 origin_mismatch，發布版已移除該預設值並要求使用自己的設定。仍需以擁有者 OAuth 設定確認 Google 授權來源、ETag 暴露、實際跨裝置讀寫及衝突互動，不能視為已完成線上驗收。
+已做 JavaScript 語法、靜態來源閱讀及 Git 差異檢查。未新增或執行測試，也未實際取得 Google 授權或讀寫使用者的 Drive。本機畫面已透過瀏覽器確認可載入；使用者在原預設 Client ID 遇到 origin_mismatch，網站隨後採用擁有者提供的新公開 Client ID，避免使用參考專案授權；使用者回報專案修正後 API 可用。仍需以擁有者 OAuth 設定確認 Google 授權來源、ETag 暴露、實際跨裝置讀寫及衝突互動，不能視為已完成線上驗收。
 
 參考官方文件：[Google Token 模式](https://developers.google.com/identity/oauth2/web/guides/use-token-model)、[Drive 應用程式資料](https://developers.google.com/workspace/drive/api/guides/appdata)、[Google 帳號識別](https://developers.google.com/identity/openid-connect/reference)。
 
 
 新版第一次在原瀏覽器開啟時，會在讀取及雲端操作前保存更新前的原始存檔（僅保存一次，不覆寫舊備份）。從資料管理「匯出更新前備份」可下載。備份仍在此瀏覽器，清除網站資料會一併清除；如瀏覽器空間不足導致備份失敗，雲端同步會先暫停，請先按「匯出完整備份」並確認檔案已保存。
+
+OAuth 仍在測試模式時，朋友需先由網站擁有者將其 Google 帳號加入測試使用者名單。共用 Client ID 只識別網站，不會共用 Google 登入身分；雲端存取使用各自記憶體中的授權權杖。

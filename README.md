@@ -18,7 +18,7 @@
 - PS4／PS5 分開；白金和 100% 完成分別判定。
 - 保留側欄分類導航，清單依名稱排列；獨立搜尋欄可依中英文名稱及已保存別名搜尋目前分類。
 - 個人分類、標籤、筆記與手動白金標記保留；已取得白金統計依來源 ID 去重。
-- 資料先存於目前瀏覽器，可設定 Google Drive 自動同步（試用）。需使用自己的 OAuth Client ID，並允許網站來源；換裝置使用同一 Google 帳號與應用程式。設定見 [雲端同步說明](docs/CLOUD_SYNC.md)。GitHub 不保存私人資料。
+- 資料先存於目前瀏覽器，可設定 Google Drive 自動同步（試用）。網站已提供共用的公開 OAuth Client ID，直接按 Google 登入；換裝置登入同一 Google 帳號。自架網站可另設自己的 OAuth 設定。設定見 [雲端同步說明](docs/CLOUD_SYNC.md)。GitHub 不保存私人資料。
 
 [使用說明](docs/使用說明.md) · [交接紀錄](docs/HANDOFF.md)
 

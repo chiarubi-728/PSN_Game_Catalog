@@ -1,8 +1,8 @@
 import {parseImport,library} from './model.js';
 
 const META='ps-game-base.cloud-auto.v1',RECOVERY='ps-game-base.cloud-recovery.v1';
-// Configure an OAuth client owned by this site; do not reuse the upstream app.
-const DEFAULT_CLIENT='';
+// Public OAuth identifier provided by the site owner; users sign in separately.
+const DEFAULT_CLIENT='565579076533-u41tbuhceaeb2ne8qoca7npkecasqkbj.apps.googleusercontent.com';
 const clientPattern=/^\d+-[a-z0-9]+\.apps\.googleusercontent\.com$/i;
 const canonical=value=>JSON.stringify(value,(_,item)=>item&&typeof item==='object'&&!Array.isArray(item)?Object.fromEntries(Object.keys(item).sort().map(key=>[key,item[key]])):item);
 function snapshot(raw){
@@ -34,7 +34,8 @@ export function initCloudSync({getSnapshot,applySnapshot,isBlocked,isDemo,isEdit
     if(isBlocked())text='同步已暫停 · 請先匯出備份並重新整理';
     $('cloud-summary').textContent=text;$('cloud-summary').dataset.state=isBlocked()?'blocked':phase;
     $('cloud-state').textContent=(account?'Google：'+account.email+'\n':'')+text;
-    $('cloud-connect').textContent=preparing?'準備 Google 授權…':connected?'已連接 Google':connectedOnce?'重新連接 Google':'連接 Google 並自動同步';
+    $('cloud-connect').textContent=preparing?'準備 Google 授權…':connected?'已登入 Google':connectedOnce?'重新登入 Google':'使用 Google 登入';
+    $('cloud-open').textContent=connected?'雲端設定':'Google 登入';
     $('cloud-connect').disabled=!clientId||busy||preparing||connected||isDemo()||isBlocked();
     $('cloud-now').disabled=!connected||busy||!!conflict||isDemo()||isBlocked();
     $('cloud-disconnect').disabled=!auth?.connected||busy;
@@ -151,7 +152,7 @@ export function initCloudSync({getSnapshot,applySnapshot,isBlocked,isDemo,isEdit
   $('cloud-connect').onclick=connect;
   $('cloud-now').onclick=()=>{retries=0;void sync();};
   $('cloud-disconnect').onclick=()=>{auth.disconnect();};
-  $('cloud-open').onclick=()=>{if(!$('data-dialog').open)$('data-dialog').showModal();$('cloud-settings').open=true;};
+  $('cloud-open').onclick=()=>{if(account&&auth.connected||busy||isDemo()||isBlocked()){if(!$('data-dialog').open)$('data-dialog').showModal();$('cloud-settings').open=true;}else void connect();};
   $('cloud-use-local').onclick=()=>resolve(true);$('cloud-use-remote').onclick=()=>resolve(false);
   $('cloud-export-local').onclick=()=>downloadSnapshot(getSnapshot(),'local');
   $('cloud-export-remote').onclick=()=>{if(conflict?.remote)downloadSnapshot(conflict.remote,'remote');else notice('雲端沒有可匯出的備份。');};

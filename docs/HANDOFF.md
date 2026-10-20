@@ -1,3 +1,13 @@
+# 2026-10-20：設定網站共用 Google Client ID 與直接登入
+
+基準 HEAD 2587af4，開始時乾淨並與 origin/main 一致。使用者確認要讓新裝置與朋友直接 Google 登入，並明確提供公開 Client ID：565579076533-u41tbuhceaeb2ne8qoca7npkecasqkbj.apps.googleusercontent.com，授權設為網站預設並發布。
+
+DEFAULT_CLIENT 改為擁有者提供值。新裝置無覆寫時使用網站設定，既有有效自訂 Client ID 繼續保留，避免不經確認切換 Drive 應用程式資料空間。主畫面雲端按鈕未登入時顯示「Google 登入」並直接呼叫授權；登入後顯示「雲端設定」供同步管理。自訂欄位改為選填並說明一般使用不需修改。沒有加入 Client Secret，也未將 Google 身分或遊戲資料寫入公開原始碼。資料仍依各自 Google sub 與 OAuth 應用程式綁定。
+
+OAuth 測試名單仍需由擁有者管理；這次不會自動改 Google Cloud 發布狀態。更新前原始碼備份位於 outputs/backups/20261020-default-google-client/before-default-google-client-2587af4.zip。僅做語法、來源及 Git 差異檢查，未新增或執行測試；發布依 Actions／HTTP 確認，真實 Google 授權與跨裝置流程未代使用者操作。
+
+---
+
 # 2026-10-20：顯示 Drive API 拒絕存取的具體原因
 
 基準 HEAD 891594b，開始時乾淨並與遠端一致。使用者已完成 OAuth，但同步只顯示籠統 403；不能據此斷言一定是 API 未啟用。更新 shared/drive-appdata.js，解析 Google error.errors 與 google.rpc.ErrorInfo 的 reason，顯示 HTTP／原因代碼，並區分同一 OAuth 專案 API 未啟用、授權 scope 不足、Workspace 政策、容量與限流。僅允許顯示安全格式原因字串和 projects/數字，未顯示完整回應、權杖或請求標頭。未更動遊戲存檔與雲端寫入流程。
