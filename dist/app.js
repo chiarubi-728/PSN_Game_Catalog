@@ -34,7 +34,7 @@ function backup(){return {schemaVersion:1,kind:'ps-game-base-backup',exportedAt:
 function download(value,name){const url=URL.createObjectURL(new Blob([JSON.stringify(value,null,2)],{type:'application/json'}));const a=el('a');a.href=url;a.download=`ps-game-base-${name}-${new Date().toISOString().slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),10000);}
 function render(){
  const games=unifiedCatalog(state.library,state.personal,state.history,state.storeNames);works=new Map(games.map(g=>[g.key,g]));
- for(const id of [...selected])if(!works.has(id))selected.delete(id);
+ for(const id of [...selected])if(!works.has(id)||view==='unorganized'&&!catalogView(works.get(id),record(id),'unorganized'))selected.delete(id);
  $('stat-total').textContent=games.length;
  $('stat-entitlements').textContent=state.library.games.length+' 筆原始數位授權';
  const trophyStats=trophyStatistics(state.history),providerName={psnprofiles:'PSNProfiles',sony:'Sony'}[trophyStats.provider];
@@ -44,14 +44,14 @@ function render(){
  $('stat-played-note').textContent=providerName?providerName+' · '+trophyStats.unfinished+' 款尚未白金'+(trophyStats.coverage==='platinum'?'（僅舊白金資料）':''):'同步來源的全部遊玩紀錄';
  const sources=Object.values(state.history?.sources||{});
  $('summary').textContent=demo?'示範模式 · 操作不會寫入你的遊戲庫':sources.length?(state.history.profile+' · 數位授權與 '+sources.map(source=>source.provider==='psnprofiles'?'PSNProfiles':'Sony').join(' / ')+' 遊玩紀錄已合併'+(storageFailed?' · 儲存失敗，請匯出備份':'')):'保留數位遊戲庫，再同步 PSNProfiles 的全部遊玩與獎盃紀錄。';
- const names={all:'所有遊戲',platinum:'白金',ignored:'忽略',tracked:'追蹤'};
+ const names={all:'所有遊戲',unorganized:'尚未整理',platinum:'白金',ignored:'忽略',tracked:'追蹤'};
  $('heading').replaceChildren(el('span',category?names[view]+' · '+category:names[view]),el('small',' / LIBRARY'));
  for(const b of $('views').querySelectorAll('button')){const active=b.dataset.view===view;b.classList.toggle('active',active);b.setAttribute('aria-pressed',String(active));}
  const batchChoice=$('batch-category').value;
  $('categories').replaceChildren();$('batch-category').replaceChildren();option($('batch-category'),'','選擇分類');
  for(const item of classificationOptions)option($('batch-category'),'mark:'+item.value,item.value==='已白金'?'白金（個人標記）':item.label);
  $('category-filter').replaceChildren();option($('category-filter'),'','全部分類');
- for(const c of state.personal.categories){const b=el('button','◌　'+c);b.classList.toggle('active',category===c);b.onclick=()=>{category=c;page=1;render();};$('categories').append(b);option($('batch-category'),'category:'+c,classificationOptions.some(item=>item.label===c)?c+'（自訂）':c);option($('category-filter'),c);}$('category-filter').value=category;
+ for(const c of state.personal.categories){const b=el('button','◌　'+c);b.classList.toggle('active',category===c);b.onclick=()=>{category=c;if(view==='unorganized')view='all';page=1;render();};$('categories').append(b);option($('batch-category'),'category:'+c,classificationOptions.some(item=>item.label===c)?c+'（自訂）':c);option($('category-filter'),c);}$('category-filter').value=category;
  if([...$('batch-category').options].some(item=>item.value===batchChoice))$('batch-category').value=batchChoice;
  const filters=readCatalogFilters();
  const filtered=games.filter(game=>{const r=record(game.key);return (!category||r.categories.includes(category))&&catalogView(game,r,view)&&matchesCatalogFilters(game,r,filters);});
@@ -83,7 +83,7 @@ function render(){
 }
 function renderFilterChips(filters){
  const items=[],add=(text,clear)=>items.push({text,clear});
- const names={platinum:'白金',ignored:'忽略',tracked:'追蹤'};
+ const names={unorganized:'尚未整理',platinum:'白金',ignored:'忽略',tracked:'追蹤'};
  if(view!=='all')add('清單：'+names[view],()=>{view='all';});
  if(category)add('分類：'+category,()=>{category='';});
  if($('search').value.trim())add('搜尋：'+$('search').value.trim(),()=>{$('search').value='';});
