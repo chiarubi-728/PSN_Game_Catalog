@@ -2,6 +2,19 @@
 (function(global){
  'use strict';
  class DriveError extends Error {constructor(message,code='drive'){super(message);this.code=code;}}
+ async function apiError(response){
+  let detail={};try{detail=(await response.json())?.error||{};}catch{}
+  const reasons=[...(Array.isArray(detail.errors)?detail.errors:[]).map(item=>item?.reason),...(Array.isArray(detail.details)?detail.details:[]).map(item=>item?.reason),detail.status].filter(value=>typeof value==='string'&&/^[A-Za-z0-9_.-]{1,100}$/.test(value));
+  const consumer=(Array.isArray(detail.details)?detail.details:[]).map(item=>item?.metadata?.consumer).find(value=>typeof value==='string'&&/^projects\/\d+$/.test(value));
+  const project=consumer?'（'+consumer.replace('projects/','專案 ')+'）':'';
+  const suffix='〔HTTP '+response.status+(reasons.length?' · '+[...new Set(reasons)].join(' / '):'')+'〕';
+  if(reasons.some(reason=>['SERVICE_DISABLED','accessNotConfigured'].includes(reason)))return new DriveError('Google Drive API 尚未在授權 Client ID 所屬的 Google Cloud 專案啟用'+project+'。請切到該專案啟用 Drive API，稍候再按「立即同步」。'+suffix,'permission');
+  if(reasons.some(reason=>['ACCESS_TOKEN_SCOPE_INSUFFICIENT','insufficientPermissions'].includes(reason)))return new DriveError('Google 尚未授予 Drive 應用程式資料權限。請中斷連接後重新連接，並同意所要求的權限。'+suffix,'permission');
+  if(reasons.includes('domainPolicy'))return new DriveError('Google Workspace 管理政策禁止此應用程式存取 Drive，需由管理員確認。'+suffix,'permission');
+  if(reasons.includes('storageQuotaExceeded'))return new DriveError('Google Drive 儲存空間不足，請先確認帳號可用容量。'+suffix,'permission');
+  if(response.status===429||reasons.some(reason=>['rateLimitExceeded','userRateLimitExceeded','RATE_LIMIT_EXCEEDED'].includes(reason)))return new DriveError('Drive 請求過於頻繁，稍後會重試。'+suffix,'drive');
+  return new DriveError((response.status===403?'Drive 拒絕存取，請確認 Client ID 所屬專案的 Drive API 與授權設定。':'Drive 請求失敗。')+suffix,response.status===403?'permission':'drive');
+ }
  class DriveAppData {
   constructor(auth,fileName){this.auth=auth;this.fileName=fileName;this.createId=null;}
   async request(url,options={}){
@@ -11,7 +24,7 @@
     if(response.status===401){this.auth.invalidate();throw new DriveError('Google 授權已失效，請重新授權。','expired');}
     if(response.status===412)throw new DriveError('雲端進度已變更，請重新下載比較後再操作。','conflict');
     if(response.status===409)throw new DriveError('雲端檔案已建立，正在重新確認版本。','conflict');
-    if(!response.ok)throw new DriveError(response.status===403?'Drive 拒絕存取，請確認授權權限及 Drive API 設定。':response.status===429?'Drive 請求過於頻繁，請稍後重試。':`Drive 請求失敗（${response.status}），本機進度仍保留。`,response.status===403?'permission':'drive');
+    if(!response.ok)throw await apiError(response);
     // Read the body before clearing the timeout; stalled downloads also time out.
     return {text:await response.text(),etag:response.headers.get('ETag')};
    }catch(e){if(e.code)throw e;throw new DriveError(e.name==='AbortError'?'Drive 請求逾時，請重新下載確認雲端狀態。':'無法連接 Drive，請確認網路後重試。');}finally{clearTimeout(timer);}

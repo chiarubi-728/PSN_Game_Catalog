@@ -1,3 +1,11 @@
+# 2026-10-20：顯示 Drive API 拒絕存取的具體原因
+
+基準 HEAD 891594b，開始時乾淨並與遠端一致。使用者已完成 OAuth，但同步只顯示籠統 403；不能據此斷言一定是 API 未啟用。更新 shared/drive-appdata.js，解析 Google error.errors 與 google.rpc.ErrorInfo 的 reason，顯示 HTTP／原因代碼，並區分同一 OAuth 專案 API 未啟用、授權 scope 不足、Workspace 政策、容量與限流。僅允許顯示安全格式原因字串和 projects/數字，未顯示完整回應、權杖或請求標頭。未更動遊戲存檔與雲端寫入流程。
+
+發布前原始碼封存在 outputs/backups/20261020-drive-diagnostics/before-drive-diagnostics-891594b.zip。只做語法與差異檢查，未新增或執行測試；需使用者重新按立即同步取得實際原因後再針對設定處理。官方依據：https://developers.google.com/workspace/drive/api/guides/handle-errors 。
+
+---
+
 # 2026-10-20：授權備份後發布自動雲端同步
 
 使用者已將「先不要 push」改為「乾脆 push，但先做好備份」，允許本次推送與 Pages 發布。基準 HEAD 645fc84，與 origin/main 一致。
