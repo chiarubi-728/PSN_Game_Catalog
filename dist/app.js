@@ -29,7 +29,11 @@ function backup(){return {schemaVersion:1,kind:'ps-game-base-backup',exportedAt:
 function download(value,name){const url=URL.createObjectURL(new Blob([JSON.stringify(value,null,2)],{type:'application/json'}));const a=el('a');a.href=url;a.download=`ps-game-base-${name}-${new Date().toISOString().slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),10000);}
 function render(){
  const games=unifiedCatalog(state.library,state.personal,state.history,state.storeNames);works=new Map(games.map(g=>[g.key,g]));
- for(const id of [...selected])if(!works.has(id)||view==='unorganized'&&!catalogView(works.get(id),record(id),'unorganized'))selected.delete(id);
+ const membershipView=!category&&(view==='ps-plus'||view==='non-ps-plus');
+ const excludeOrganized=membershipView&&$('exclude-organized').checked;
+ $('catalog-stats').hidden=view!=='all'||!!category;
+ $('membership-options').hidden=!membershipView;
+ for(const id of [...selected])if(!works.has(id)||(view==='unorganized'||excludeOrganized)&&!catalogView(works.get(id),record(id),'unorganized'))selected.delete(id);
  $('stat-total').textContent=games.length;
  $('stat-entitlements').textContent=state.library.games.length+' 筆原始數位授權';
  const trophyStats=trophyStatistics(state.history),providerName={psnprofiles:'PSNProfiles',sony:'Sony'}[trophyStats.provider];
@@ -47,7 +51,7 @@ function render(){
  for(const item of classificationOptions)option($('batch-category'),'mark:'+item.value,item.value==='已白金'?'白金（個人標記）':item.label);
  for(const c of state.personal.categories){const b=el('button','◌　'+c);b.classList.toggle('active',category===c);b.onclick=()=>{category=c;if(view==='unorganized')view='all';page=1;render();};$('categories').append(b);option($('batch-category'),'category:'+c,classificationOptions.some(item=>item.label===c)?c+'（自訂）':c);}
  if([...$('batch-category').options].some(item=>item.value===batchChoice))$('batch-category').value=batchChoice;
- const filtered=games.filter(game=>{const r=record(game.key);return (!category||r.categories.includes(category))&&catalogView(game,r,view);});
+ const filtered=games.filter(game=>{const r=record(game.key);return (!category||r.categories.includes(category))&&catalogView(game,r,view)&&(!excludeOrganized||catalogView(game,r,'unorganized'));});
  filtered.sort((a,b)=>a.name.localeCompare(b.name,'zh-Hant')||a.key.localeCompare(b.key));
  const pages=Math.max(1,Math.ceil(filtered.length/48));page=Math.min(page,pages);shown=filtered.slice((page-1)*48,page*48);
  $('grid').replaceChildren();$('empty').hidden=filtered.length>0;
@@ -90,7 +94,9 @@ $('platform-review-show').onclick=()=>{view='all';category='';page=1;render();};
 $('platform-review-sony').onclick=()=>$('history-dialog').showModal();
 for(const button of $('views').querySelectorAll('button'))button.onclick=()=>{view=button.dataset.view;category='';page=1;render();};
 document.querySelector('.brand').onclick=event=>{event.preventDefault();view='all';category='';page=1;render();};
-$('prev').onclick=()=>{page--;render();};$('next').onclick=()=>{page++;render();};
+$('exclude-organized').onchange=()=>{page=1;render();};
+function changePage(delta){page+=delta;render();window.scrollTo({top:0,left:0,behavior:'instant'});}
+$('prev').onclick=()=>changePage(-1);$('next').onclick=()=>changePage(1);
 $('select-all').onclick=()=>{shown.forEach(g=>selected.add(g.key));render();};$('clear-selection').onclick=()=>{selected.clear();render();};
 $('batch-category').onchange=renderBatch;
 $('apply-category').onclick=()=>{
