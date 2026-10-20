@@ -1,3 +1,8 @@
+# 2026-10-20：加入 Search Console 網站擁有權驗證
+
+使用者提供完整 google-site-verification meta 標記，授權加入首頁並發布。基準 HEAD b633a4d，更新前程式碼備份於 outputs/backups/20261020-site-verification/before-site-verification-b633a4d.zip。僅將提供的公開驗證標記放入 dist/index.html 的 head；未更改資料或同步流程。驗證完成後需保留標記，以維持網站擁有權。Google Search Console 的「驗證」與 OAuth 品牌重新驗證仍由使用者操作；網站部署不代表 Google 已通過驗證。僅檢閱來源、Git 差異與部署狀態／HTTP，未新增或執行測試。
+
+---
 # 2026-10-20：補齊 OAuth 品牌的公開說明頁
 
 使用者要從測試模式對外發布，Google 主控台因品牌缺少名稱、支援信箱、首頁與政策等資訊停用發布按鈕。基準 HEAD b64346b，更新前原始碼已備份至 outputs/backups/20261020-oauth-branding/before-oauth-branding-b64346b.zip。
