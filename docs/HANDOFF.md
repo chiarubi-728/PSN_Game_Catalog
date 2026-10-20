@@ -1,3 +1,11 @@
+# 2026-10-20：補齊 OAuth 品牌的公開說明頁
+
+使用者要從測試模式對外發布，Google 主控台因品牌缺少名稱、支援信箱、首頁與政策等資訊停用發布按鈕。基準 HEAD b64346b，更新前原始碼已備份至 outputs/backups/20261020-oauth-branding/before-oauth-branding-b64346b.zip。
+
+新增 dist/privacy.html、terms.html 與獨立 policy.css，不載入應用程式、登入或同步腳本。政策依現有實作揭露 Google scope、識別碼、權杖記憶體保存、瀏覽器／Drive 儲存、外部連線、移除方式與共用電腦限制。聯絡使用既有公開 GitHub Issues，未公開使用者私人信箱。首頁新增政策與服務說明連結、更新標題及描述，雲端設定新增資料處理說明；遊戲與同步模型未更動。僅來源、Git 差異及部署 HTTP 檢查，未新增或執行測試。Google Cloud 發布、品牌與網域驗證仍由擁有者在主控台操作，部署成功不代表 OAuth 已公開。
+
+---
+
 # 2026-10-20：設定網站共用 Google Client ID 與直接登入
 
 基準 HEAD 2587af4，開始時乾淨並與 origin/main 一致。使用者確認要讓新裝置與朋友直接 Google 登入，並明確提供公開 Client ID：565579076533-u41tbuhceaeb2ne8qoca7npkecasqkbj.apps.googleusercontent.com，授權設為網站預設並發布。

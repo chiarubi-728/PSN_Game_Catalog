@@ -6,6 +6,8 @@
 
 [開啟 PSN Game Catalog](https://chiarubi-728.github.io/PSN_Game_Catalog/)
 
+[隱私權政策](https://chiarubi-728.github.io/PSN_Game_Catalog/privacy.html) · [服務說明](https://chiarubi-728.github.io/PSN_Game_Catalog/terms.html)
+
 1. 從「資料管理 → 首次設定／更新腳本」安裝「PSN Game Catalog」整合腳本 **v0.3.1**，並停用舊的「PS Game Base 遊戲庫」及獨立 PSNProfiles／獎盃助手腳本。更新後重新整理本網站及來源分頁。
 2. 平常按 **同步遊戲庫**。同一個來源分頁依序讀取 Sony 數位授權、PSNProfiles 全部遊玩／獎盃紀錄，最後自動補齊官方中英文名稱並合併。
 3. Sony 登入與 PSNProfiles 網站驗證需在來源分頁完成。各階段顯示進度，中途失敗保留已保存的部分，可重試未完成步驟。
