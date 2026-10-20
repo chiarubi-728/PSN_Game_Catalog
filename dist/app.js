@@ -5,7 +5,7 @@ import {emptyHistory,readHistory,mergeHistory,trophyStatistics} from './history.
 import {unifiedCatalog,catalogRecordFor,catalogPlatinum,catalogView,historyRecordKey} from './catalog.js';
 import {emptyStoreNames,readStoreNames,mergeStoreNames} from './store-names.js';
 import {initStoreNames} from './store-names-ui.js';
-import {invertedFilterIds,readCatalogFilters,matchesCatalogFilters,compareCatalogGames,saveCatalogFilters,restoreCatalogFilters,resetCatalogControls} from './catalog-filters.js';
+import {renderCatalogFilterOptions,clearCatalogFilterGroup,readCatalogFilters,matchesCatalogFilters,compareCatalogGames,saveCatalogFilters,restoreCatalogFilters,resetCatalogControls} from './catalog-filters.js';
 import {classificationOptions, classificationFor, matchesClassification, library, personal, emptyPersonal, blankRecord, workRecordFor, hasWorkConflicts, platformGames as groupGames, needsPlatformPlatinumReview, matchesWorkFilters, mergeLibrary, parseImport} from './model.js';
 import {icon} from './icons.js';
 
@@ -19,9 +19,7 @@ let storageFailed=false, externalChanged=false;
 function persist(){if(demo)return true;if(externalChanged){storageFailed=true;notice('另一分頁已有新版本，已停止寫入。請匯出此頁備份，再重新整理，避免覆蓋新資料。');return false;}try{localStorage.setItem(KEY,JSON.stringify(state));storageFailed=false;return true;}catch{storageFailed=true;notice('瀏覽器儲存失敗！目前變更只在此分頁，請立即匯出備份。');return false;}}
 function el(tag,text,className){const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(className)n.className=className;return n;}
 function option(select,value,label){const n=el('option',label??value);n.value=value;select.append(n);}
-for(const item of classificationOptions)if(item.value!=='已白金')option($('status'),item.value,item.label);
-option($('status'),'unclassified','未分類');
-option($('status'),'manual-platinum','個人白金標記');
+renderCatalogFilterOptions(state.personal);
 ({view,category}=restoreCatalogFilters(state.personal));
 for(const item of classificationOptions){const label=el('label',undefined,'status-choice'),input=el('input'),visual=el('span',undefined,'status-option');input.type='radio';input.name='classification';input.value=item.value;visual.dataset.tone=item.tone;visual.append(icon(item.icon),el('span',item.label));label.append(input,visual);$('edit-classifications').append(label);input.onchange=()=>{if(input.checked)setEditorStatus(input.value);};}
 for(const b of $('views').querySelectorAll('[data-classification]')){const item=classificationFor(b.dataset.classification);b.dataset.tone=item.tone;b.prepend(icon(item.icon));}
@@ -45,16 +43,16 @@ function render(){
  const sources=Object.values(state.history?.sources||{});
  $('summary').textContent=demo?'示範模式 · 操作不會寫入你的遊戲庫':sources.length?(state.history.profile+' · 數位授權與 '+sources.map(source=>source.provider==='psnprofiles'?'PSNProfiles':'Sony').join(' / ')+' 遊玩紀錄已合併'+(storageFailed?' · 儲存失敗，請匯出備份':'')):'保留數位遊戲庫，再同步 PSNProfiles 的全部遊玩與獎盃紀錄。';
  const names={all:'所有遊戲',unorganized:'尚未整理','ps-plus':'PS Plus','non-ps-plus':'非 PS Plus',platinum:'白金',ignored:'忽略',tracked:'追蹤'};
- $('heading').replaceChildren(el('span',category?names[view]+' · '+($('exclude-category-filter').checked?'排除 ':'')+category:names[view]),el('small',' / LIBRARY'));
+ $('heading').replaceChildren(el('span',category?names[view]+' · '+category:names[view]),el('small',' / LIBRARY'));
  for(const b of $('views').querySelectorAll('button')){const active=b.dataset.view===view;b.classList.toggle('active',active);b.setAttribute('aria-pressed',String(active));}
  const batchChoice=$('batch-category').value;
  $('categories').replaceChildren();$('batch-category').replaceChildren();option($('batch-category'),'','選擇分類');
  for(const item of classificationOptions)option($('batch-category'),'mark:'+item.value,item.value==='已白金'?'白金（個人標記）':item.label);
- $('category-filter').replaceChildren();option($('category-filter'),'','全部分類');
- for(const c of state.personal.categories){const b=el('button','◌　'+c);b.classList.toggle('active',category===c);b.onclick=()=>{category=c;$('exclude-category-filter').checked=false;if(view==='unorganized')view='all';page=1;render();};$('categories').append(b);option($('batch-category'),'category:'+c,classificationOptions.some(item=>item.label===c)?c+'（自訂）':c);option($('category-filter'),c);}$('category-filter').value=category;
+ for(const c of state.personal.categories){const b=el('button','◌　'+c);b.classList.toggle('active',category===c);b.onclick=()=>{category=c;if(view==='unorganized')view='all';page=1;render();};$('categories').append(b);option($('batch-category'),'category:'+c,classificationOptions.some(item=>item.label===c)?c+'（自訂）':c);}
  if([...$('batch-category').options].some(item=>item.value===batchChoice))$('batch-category').value=batchChoice;
+ renderCatalogFilterOptions(state.personal);
  const filters=readCatalogFilters();
- const filtered=games.filter(game=>{const r=record(game.key);return catalogView(game,r,view)&&matchesCatalogFilters(game,r,filters);});
+ const filtered=games.filter(game=>{const r=record(game.key);return (!category||r.categories.includes(category))&&catalogView(game,r,view)&&matchesCatalogFilters(game,r,filters);});
  filtered.sort((a,b)=>compareCatalogGames(a,b,filters.sort,game=>record(game.key)));
  renderFilterChips(filters);
  const pages=Math.max(1,Math.ceil(filtered.length/48));page=Math.min(page,pages);shown=filtered.slice((page-1)*48,page*48);
@@ -82,22 +80,26 @@ function render(){
  $('result-count').textContent=filtered.length+' / '+games.length+' 張遊戲／平台卡片 · '+filtered.reduce((count,g)=>count+g.digitalMembers.length,0)+' 筆數位授權'+(selected.size?' · 已選 '+selected.size+' 張':'');$('page-label').textContent=page+' / '+pages;$('prev').disabled=page===1;$('next').disabled=page===pages;renderBatch();$('reset-demo').hidden=!demo;saveCatalogFilters({view,category});unifiedSync?.refresh();
 }
 function renderFilterChips(filters){
- for(const id of invertedFilterIds){const active=id==='progress-range'?$('progress-min').value!==''||$('progress-max').value!=='':id==='category-filter'?!!category:!!$(id).value.trim();const check=$('exclude-'+id);check.disabled=!active;if(!active)check.checked=false;filters.excluded[id]=check.checked;}
- const items=[],add=(text,clear,excluded=false)=>items.push({text,clear,excluded}),isExcluded=id=>filters.excluded[id];
+ const items=[],counts={include:0,exclude:0},add=(text,clear,side)=>{items.push({text,clear,side});if(side)counts[side]++;};
  const names={unorganized:'尚未整理','ps-plus':'PS Plus','non-ps-plus':'非 PS Plus',platinum:'白金',ignored:'忽略',tracked:'追蹤'};
  if(view!=='all')add('清單：'+names[view],()=>{view='all';});
- if(category)add((isExcluded('category-filter')?'排除分類：':'分類：')+category,()=>{category='';$('exclude-category-filter').checked=false;},isExcluded('category-filter'));
- if($('search').value.trim())add((isExcluded('search')?'排除搜尋：':'搜尋：')+$('search').value.trim(),()=>{$('search').value='';$('exclude-search').checked=false;},isExcluded('search'));
- for(const [id,label] of [['platform','平台'],['completion','完成'],['ownership','來源'],['status','個人整理']])if($(id).value)add((isExcluded(id)?'排除':'')+label+'：'+$(id).selectedOptions[0].textContent,()=>{$(id).value='';$('exclude-'+id).checked=false;},isExcluded(id));
- if($('progress-min').value||$('progress-max').value)add((isExcluded('progress-range')?'排除完成率：':'完成率：')+($('progress-min').value||'0')+'–'+($('progress-max').value||'100')+'%',()=>{$('progress-min').value=$('progress-max').value='';$('exclude-progress-range').checked=false;},isExcluded('progress-range'));
- $('filter-chips').replaceChildren();for(const item of items){const chip=el('button',item.text+' ×',item.excluded?'filter-chip filter-chip-excluded':'filter-chip');chip.type='button';chip.title=item.text;chip.setAttribute('aria-label','移除'+item.text);chip.onclick=()=>{item.clear();page=1;render();};$('filter-chips').append(chip);}
- $('filter-count').textContent=(items.length?'已套用 '+items.length+' 個條件':'未套用篩選')+' · 上方為全庫統計';
- $('filter-panel-count').textContent=(filters.invalidRange?'完成率區間需修正':items.length?'已套用 '+items.length+' 個條件':'未套用篩選')+(filters.sort!=='name'?' · 已排序':'');
- $('clear-filters').disabled=!items.length&&$('sort').value==='name';$('filter-error').hidden=!filters.invalidRange;
- $('clear-progress-range').disabled=$('progress-min').value===''&&$('progress-max').value==='';
- for(const id of ['progress-min','progress-max'])$(id).setAttribute('aria-invalid',String(filters.invalidRange));
- const extra=[category,$('status').value,$('progress-min').value||$('progress-max').value].filter(Boolean).length;
- $('filter-extra-count').textContent=extra?'（'+extra+'）':'';
+ if(category)add('清單分類：'+category,()=>{category='';});
+ for(const side of ['include','exclude']){
+  const prefix=side==='include'?'包含':'排除',fieldPrefix=side==='include'?'':'exclude-';
+  for(const input of $('filter-'+side+'-options').querySelectorAll('input:checked')){const label=input.parentElement.querySelector('span').textContent;add(prefix+'：'+label,()=>{input.checked=false;},side);}
+  if($(fieldPrefix+'search').value.trim())add(prefix+'字詞：'+$(fieldPrefix+'search').value.trim(),()=>{$(fieldPrefix+'search').value='';},side);
+  const min=$(fieldPrefix+'progress-min'),max=$(fieldPrefix+'progress-max'),hasRange=min.value!==''||max.value!=='';
+  if(hasRange)add(prefix+'完成率：'+(min.value||'0')+'–'+(max.value||'100')+'%',()=>{min.value=max.value='';},side);
+  $('clear-'+fieldPrefix+'progress-range').disabled=!hasRange;
+  const invalid=side==='include'?filters.invalidIncludeRange:filters.invalidExcludeRange;
+  for(const input of [min,max])input.setAttribute('aria-invalid',String(invalid));
+  $('filter-'+side+'-count').textContent=counts[side];$('clear-'+side+'-filters').disabled=!counts[side];
+ }
+ $('filter-chips').replaceChildren();for(const item of items){const chip=el('button',item.text+' ×',item.side==='exclude'?'filter-chip filter-chip-excluded':'filter-chip');chip.type='button';chip.title=item.text;chip.setAttribute('aria-label','移除'+item.text);chip.onclick=()=>{item.clear();page=1;render();};$('filter-chips').append(chip);}
+ $('filter-count').textContent='包含 '+counts.include+' 項 · 排除 '+counts.exclude+' 項 · 上方為全庫統計';
+ $('filter-panel-count').textContent=(filters.invalidRange?'完成率區間需修正':items.length?'包含 '+counts.include+'／排除 '+counts.exclude+(view!=='all'||category?' · 已選清單':''):'未套用篩選')+(filters.sort!=='name'?' · 已排序':'');
+ $('clear-filters').disabled=!items.length&&filters.sort==='name';$('filter-error').hidden=!filters.invalidRange;
+ $('filter-error').textContent=(filters.invalidIncludeRange?'包含':filters.invalidExcludeRange?'排除':'')+'完成率請輸入 0–100，最低值不可高於最高值。';
 }
 function renderBatch(){$('batch').hidden=!selected.size;$('selected-count').textContent=`已選 ${selected.size} 款遊戲`;$('apply-category').disabled=!selected.size||!$('batch-category').value;}
 function quickClassifications(game,status){
@@ -112,16 +114,20 @@ function quickClassifications(game,status){
  }
  return controls;
 }
-$('platform-review-show').onclick=()=>{view='all';category='';page=1;$('status').value='platform-review';$('platform').value='';$('search').value='';render();};
+$('platform-review-show').onclick=()=>{view='all';category='';page=1;resetCatalogControls();render();};
 $('platform-review-sony').onclick=()=>$('history-dialog').showModal();
-for(const b of $('views').querySelectorAll('button'))b.onclick=()=>{view=b.dataset.view;category='';for(const id of ['status','completion','ownership','progress-min','progress-max'])$(id).value='';page=1;render();};
-$('category-filter').onchange=()=>{category=$('category-filter').value;page=1;render();};
-for(const id of ['search','platform','completion','ownership','status','sort','progress-min','progress-max'])$(id).addEventListener(['search','progress-min','progress-max'].includes(id)?'input':'change',()=>{page=1;render();});
+for(const button of $('views').querySelectorAll('button'))button.onclick=()=>{view=button.dataset.view;category='';page=1;render();};
 document.querySelector('.brand').onclick=event=>{event.preventDefault();view='all';category='';page=1;render();};
 $('clear-filters').onclick=()=>{view='all';category='';page=1;resetCatalogControls();render();};
-$('clear-progress-range').onclick=()=>{$('progress-min').value=$('progress-max').value='';$('exclude-progress-range').checked=false;page=1;render();};
-for(const id of invertedFilterIds)$('exclude-'+id).addEventListener('change',()=>{page=1;render();});
-for(const id of ['filter-panel','filter-advanced'])$(id).addEventListener('toggle',()=>saveCatalogFilters({view,category}));
+$('sort').onchange=()=>{page=1;render();};
+for(const side of ['include','exclude']){
+ const prefix=side==='include'?'':'exclude-';
+ $('filter-'+side+'-options').addEventListener('change',()=>{page=1;render();});
+ for(const suffix of ['search','progress-min','progress-max'])$(prefix+suffix).addEventListener('input',()=>{page=1;render();});
+ $('clear-'+prefix+'progress-range').onclick=()=>{$(prefix+'progress-min').value=$(prefix+'progress-max').value='';page=1;render();};
+ $('clear-'+side+'-filters').onclick=()=>{clearCatalogFilterGroup(side);page=1;render();};
+}
+for(const id of ['filter-panel','filter-include','filter-exclude'])$(id).addEventListener('toggle',()=>saveCatalogFilters({view,category}));
 $('prev').onclick=()=>{page--;render();};$('next').onclick=()=>{page++;render();};
 $('select-all').onclick=()=>{shown.forEach(g=>selected.add(g.key));render();};$('clear-selection').onclick=()=>{selected.clear();render();};
 $('batch-category').onchange=renderBatch;
