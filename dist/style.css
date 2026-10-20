@@ -85,3 +85,6 @@ details{border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin:
 
 /* Optional cleanup view for PS Plus and non-PS Plus lists. */
 .membership-options{margin-top:24px}.membership-options label{display:inline-flex;align-items:center;gap:8px;color:#b6c6dc;font-size:12px;cursor:pointer}.membership-options input{width:16px;height:16px;margin:0;accent-color:#aac7ff}
+
+/* Name search within the current library view. */
+.catalog-search{margin-top:24px}.catalog-search>label{display:block;font-size:11px;color:#9fadc4;margin-bottom:7px}.catalog-search-controls{display:flex;align-items:stretch;gap:10px}.catalog-search-controls input{flex:1;min-width:0;width:100%;font-size:12px}.catalog-search-controls button{flex:none;font-size:12px;white-space:nowrap}.catalog-search+.membership-options{margin-top:16px}
