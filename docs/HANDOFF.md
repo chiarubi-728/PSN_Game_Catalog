@@ -1,3 +1,15 @@
+# 2026-10-21：新增公開應用程式介紹頁
+
+使用者收到 Google 首頁規範回覆後，同意先補公開介紹。新增 dist/about.html 與 about.css，純靜態 HTML/CSS，無登入、JS、外部字體、追蹤或重新導向。名稱 PSN Game Catalog，描述數位授權／PSNProfiles 遊玩與獎盃／平台及自訂分類／JSON 與選用 Drive 備份；常駐顯示 Google 帳號識別碼、電子郵件、Drive appDataFolder 的權限、用途與實際備份內容，說明資料限制與使用者選擇。已有隱私權政策、服務說明、GitHub 維護者／issue 聯絡與「進入遊戲庫」入口。about head 保留原驗證 token，頁面不設 noindex；既有 app 的 noindex 沿用。
+
+遊戲庫原 index.html 保持原工具入口，footer 增加應用程式介紹；privacy/terms 的 nav 補介紹連結，政策內容沿用。無修改 app JS、存檔／權杖／授權範圍／Client ID 或私人資料。使用說明新增 Google Console 操作：應用程式首頁填 https://chiarubi-728.github.io/PSN_Game_Catalog/about.html ，隱私與條款保留原同網域網址；授權網域同前。尚未代為操作 Google Console 或回覆任何審查信件。
+
+這是公開首頁內容的改善，不宣稱可解決網域擁有權問題或保證通過；DNS Domain Property 與 URL-prefix 是否可接受仍由 Google 判定。新增頁支援手機／鍵盤焦點／跳至內容，導覽使用實際同網域連結。只做 HTML／CSS 靜態來源、連結及引用、Git 差異和部署內容檢查，未新增或執行測試，未進行瀏覽器畫面／互動驗收。
+
+基準 5815b6a，修改前備份 outputs/backups/20261021-public-introduction/before-public-introduction-5815b6a.zip。只發布 chiarubi-728/PSN_Game_Catalog main，輸出目錄與 zip 同步更新。
+
+---
+
 # 2026-10-21：自訂分類與個人標記改取交集
 
 使用者回報 PS5＋白金＋Monster Hunter 自訂分類應只顯示 Monster Hunter 分類內已白金的 PS5 遊戲。修正上一版將白金／忽略／追蹤與自訂分類合為同一 OR 組的行為：browse-filters.js 現為標記組 OR、自訂分類組 OR，兩組取 AND，任一組未選表示不限。app.js 既有平台、側欄、搜尋、完成率與 includeIgnored 條件沿用。下拉仍可複選，不改快捷標記、自訂分類資料、暫留卡片或獎盃來源；index 無障礙群組說明與使用說明同步更新。本節取代下方歷史紀錄的「所有分類同組 OR」敘述。
