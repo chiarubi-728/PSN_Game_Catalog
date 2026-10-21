@@ -1,6 +1,7 @@
 // Reusable Drive appDataFolder JSON storage; no knowledge of Checklist state.
 (function(global){
  'use strict';
+ const validEtag=value=>typeof value==='string'&&value.length<=1000&&/^"[\x21\x23-\x7e\x80-\xff]+"$/.test(value);
  class DriveError extends Error {constructor(message,code='drive'){super(message);this.code=code;}}
  async function apiError(response){
   let detail={};try{detail=(await response.json())?.error||{};}catch{}
@@ -44,27 +45,34 @@
    if(files.length===1)this.createId=null;
    return files[0]||null;
   }
-  async metadata(id){return this.json(await this.request('https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(id)+'?fields=id,name,version,modifiedTime,size'));}
+  async protectedMetadata(id){
+   // Drive v3 has no JSON etag field, and browsers may not expose its ETag
+   // response header. v2 supplies the resource ETag in JSON. Keep both the
+   // ETag and the conditional update on v2; a media ETag is not interchangeable.
+   const data=this.json(await this.request('https://www.googleapis.com/drive/v2/files/'+encodeURIComponent(id)+'?fields=id,title,version,modifiedDate,fileSize,etag'));
+   if(data.id!==id||data.title!==this.fileName||typeof data.version!=='string'||!/^\d+$/.test(data.version))throw new DriveError('雲端檔案版本資訊不完整或檔案已變更，已暫停同步。','invalid');
+   if(!validEtag(data.etag))throw new DriveError('Google 未回傳可用的雲端版本保護碼，已暫停同步；本機與雲端資料均保留。','invalid');
+   return {file:{id:data.id,name:data.title,version:data.version,modifiedTime:data.modifiedDate,size:data.fileSize},etag:data.etag,etagApi:'v2'};
+  }
   async read(cached=null){
    const file=await this.find();if(!file)return null;
    if(Number(file.size)>5*1024*1024)throw new DriveError('雲端進度超過 5 MB，已停止下載。','invalid');
-   if(cached?.file?.id===file.id&&cached.file.version===file.version)return cached;
-   const before=await this.request('https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(file.id)+'?fields=id,name,version,modifiedTime,size');
-   const initial=this.json(before);
-   if(initial.version!==file.version)throw new DriveError('讀取期間雲端已變更，請重試。','conflict');
+   if(cached?.file?.id===file.id&&cached.file.version===file.version&&cached.etagApi==='v2'&&validEtag(cached.etag))return cached;
+   const before=await this.protectedMetadata(file.id);
+   if(before.file.version!==file.version)throw new DriveError('讀取期間雲端已變更，請重試。','conflict');
    const media=await this.request('https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(file.id)+'?alt=media');
    if(media.text.length>5*1024*1024)throw new DriveError('雲端进度檔案太大。','invalid');
-   const latest=await this.metadata(file.id);
-   if(latest.version!==file.version)throw new DriveError('下載期間雲端已變更，請再下載一次。','conflict');
-   return {file:latest,etag:before.etag||media.etag,value:this.json(media)};
+   const latest=await this.protectedMetadata(file.id);
+   if(latest.file.version!==file.version||latest.etag!==before.etag)throw new DriveError('下載期間雲端已變更，請再下載一次。','conflict');
+   return {...latest,value:this.json(media)};
   }
   async write(value,expected){
    const current=await this.find();
    if(expected?(!current||current.id!==expected.file.id||current.version!==expected.file.version):!!current)throw new DriveError('雲端進度已變更，請重新下載比較後再操作。','conflict');
    const body=JSON.stringify(value);
    if(current){
-    if(!expected.etag)throw new DriveError('無法取得雲端版本保護資訊，已暫停同步以避免覆蓋。','invalid');
-    await this.request('https://www.googleapis.com/upload/drive/v3/files/'+encodeURIComponent(current.id)+'?uploadType=media',{method:'PATCH',headers:{'Content-Type':'application/json',...(expected.etag?{'If-Match':expected.etag}:{})},body});
+    if(expected.etagApi!=='v2'||!validEtag(expected.etag))throw new DriveError('無法取得雲端版本保護資訊，已暫停同步以避免覆蓋。','invalid');
+    await this.request('https://www.googleapis.com/upload/drive/v2/files/'+encodeURIComponent(current.id)+'?uploadType=media',{method:'PUT',headers:{'Content-Type':'application/json','If-Match':expected.etag},body});
    }else{
     // Retry an uncertain first upload with the same ID instead of duplicating it.
     if(!this.createId){
