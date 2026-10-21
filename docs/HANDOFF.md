@@ -1,3 +1,13 @@
+# 2026-10-21：平台標籤、文字放大與綠色追蹤
+
+使用者要求文字稍大，新增類似上游的 PS5／PS4 標籤，來源白金改為「白金」，追蹤黃色改綠色。index/app 新增搜尋旁 platform-filters 原生 toggle buttons，aria-pressed 隨記憶體 Set 更新；同組任一平台符合，未選不限（包含 PS3／PS Vita 等既有來源紀錄）。搭配現有 view/category/search/exclusion；切換或清除平台時取消勾選、回第一頁，render 與 batch eligible 保護沿用。不存入 localStorage 或備份，全庫統計保持全庫，跨側欄保留當頁平台選擇。空結果提示可清除平台。
+
+白金文字與初始 HTML 改為兩字，trophyStatistics 與來源說明 tooltip／aria-describedby 保留。--status-tracked 改 #73D29D，對應 tint 同步改綠，統計／側欄／快捷／編輯標記共用，不影響 PS Plus 金色。主要遊戲名稱桌面 13→15px、手機 11→13px，側欄、搜尋、統計小字、分類與獎盃等約加 1–2px，保留緊湊摘要與響應式換行。不恢復整個舊篩選區，也未增加來源篩選或棄坑分類。
+
+基準 96d51ff，程式備份 outputs/backups/20261021-platform-chips/before-platform-chips-96d51ff.zip。本次僅語法、靜態引用／HTML ID 與 Git 差異、部署內容檢查，未新增或執行測試，未實機驗收畫面或私人資料。同步、來源配對、存檔格式與 userscript 沿用。發布到自己的 repo，刷新網站即可。
+
+---
+
 # 2026-10-21：卡片只顯示已有分類，移除預設狀態與來源文字
 
 使用者圈出卡片的「數位擁有／未分類／尚無遊玩紀錄／Sony 數位庫」與「Sony 數位庫 · PSNProfiles」來源列，要求隱藏，有分類再顯示。app.js 卡片移除 ownership-label、source-label 及預設狀態文案；僅有 classificationFor 的個人標記或來源白金時建立 pill，個人忽略／追蹤優先於來源白金，無個人標記才顯示來源白金。個人白金標記仍與來源白金分別標示。自訂分類／標籤沿用既有輸出，獎盃數字與進度保留。
