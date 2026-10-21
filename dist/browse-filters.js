@@ -8,9 +8,10 @@ export function progressRange(minInput,maxInput){
 export function matchesBrowseFilters(game,record,{marks,categories,progress}){
   if(progress.invalid)return false;
   if(progress.active&&(game.progress===null||!Number.isFinite(game.progress)||progress.min!==null&&game.progress<progress.min||progress.max!==null&&game.progress>progress.max))return false;
-  // All classifications form one OR group, including custom categories.
-  if(!marks.size&&!categories.size)return true;
-  return (marks.has('已白金')&&(game.platinum||personalPlatinum(record)))
-    || (record.status!=='已白金'&&marks.has(record.status))
-    || record.categories.some(name=>categories.has(name));
+  // OR within each group; marks and custom categories narrow each other.
+  const matchesMark=!marks.size
+    || (marks.has('已白金')&&(game.platinum||personalPlatinum(record)))
+    || (record.status!=='已白金'&&marks.has(record.status));
+  const matchesCategory=!categories.size||record.categories.some(name=>categories.has(name));
+  return matchesMark&&matchesCategory;
 }
