@@ -1,3 +1,11 @@
+# 2026-10-21：雲端背景檢查不再反覆顯示同步中
+
+使用者回報 Google 雲端狀態持續反覆變動。來源檢閱確認原本每 30 秒、切回視窗或關閉對話框觸發的版本檢查，都會先顯示同步中，內容相同時仍更新 lastSync；不代表每次都實際上傳。修改 cloud-sync.js：背景排程在已同步且無未同步修改時安靜比對，內容相同不刷新同步時間或重寫基準；真正上傳與載入在執行前顯示同步中。首次連接、手動同步、未完成修改、錯誤與衝突仍保留明確狀態。30 秒跨裝置檢查及版本保護沿用，未改存檔格式。
+
+基準 HEAD b5e1ea9，更新前程式碼備份於 outputs/backups/20261021-quiet-cloud-poll/before-quiet-cloud-poll-b5e1ea9.zip。僅做語法、來源、Git 差異及部署 HTTP 檢查，未新增或執行測試；沒有代使用者操作 Google 帳號或實際驗收其跨裝置 Drive 讀寫。
+
+---
+
 # 2026-10-20：加入 Search Console 網站擁有權驗證
 
 使用者提供完整 google-site-verification meta 標記，授權加入首頁並發布。基準 HEAD b633a4d，更新前程式碼備份於 outputs/backups/20261020-site-verification/before-site-verification-b633a4d.zip。僅將提供的公開驗證標記放入 dist/index.html 的 head；未更改資料或同步流程。驗證完成後需保留標記，以維持網站擁有權。Google Search Console 的「驗證」與 OAuth 品牌重新驗證仍由使用者操作；網站部署不代表 Google 已通過驗證。僅檢閱來源、Git 差異與部署狀態／HTTP，未新增或執行測試。

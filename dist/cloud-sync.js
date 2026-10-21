@@ -47,7 +47,7 @@ export function initCloudSync({getSnapshot,applySnapshot,isBlocked,isDemo,isEdit
   function setPhase(next,text=''){phase=next;message=text;refresh();}
   function cancelTimer(){clearTimeout(timer);timer=null;}
   function current(run){if(run!==epoch||!auth.connected||!account)throw Object.assign(Error('連接已變更，已停止這次同步。'),{code:'cancelled'});if(isBlocked())throw Object.assign(Error('本機儲存或其他分頁狀態已改變，請先匯出備份並重新整理。'),{code:'blocked'});if(isDemo())throw Object.assign(Error('示範模式暫停同步。'),{code:'paused'});}
-  function schedule(delay=1400){cancelTimer();if(!account||!auth.connected||conflict||isDemo()||isBlocked())return;timer=setTimeout(()=>{timer=null;void sync();},delay);}
+  function schedule(delay=1400,{background=false}={}){cancelTimer();if(!account||!auth.connected||conflict||isDemo()||isBlocked())return;timer=setTimeout(()=>{timer=null;void sync({background});},delay);}
   function remember(hash){
     const next={schemaVersion:1,clientId,baselineClientId:clientId,owner:account.sub,baseline:hash,lastSync:new Date().toISOString()};
     // Do not claim success unless the baseline survives a refresh.
@@ -86,11 +86,12 @@ export function initCloudSync({getSnapshot,applySnapshot,isBlocked,isDemo,isEdit
     current(run);
     if(startRevision!==revision){schedule();return false;}
     if(isEditing()){setPhase('pending','雲端有更新 · 完成目前編輯後自動載入');schedule(3000);return false;}
-    applySnapshot(remote);remember(hash);dirty=false;return true;
+    setPhase('syncing');applySnapshot(remote);remember(hash);dirty=false;return true;
   }
   async function upload(local,hash,result,run){
     current(run);
     if(new Blob([JSON.stringify(local)]).size>5*1024*1024)throw Object.assign(Error('完整備份超過 5 MB，請先匯出 JSON 備份。'),{code:'invalid'});
+    setPhase('syncing');
     const value={...local,exportedAt:new Date().toISOString()};
     await drive.write(value,result);current(run);
     // Read back before acknowledging. This also detects simultaneous first uploads.
@@ -98,11 +99,14 @@ export function initCloudSync({getSnapshot,applySnapshot,isBlocked,isDemo,isEdit
     if(!written||await fingerprint(snapshot(written.value))!==hash)throw Object.assign(Error('雲端在上傳後又有變更，正在重新比較版本。'),{code:'conflict'});
     remember(hash);
   }
-  async function sync(){
+  async function sync({background=false}={}){
     if(busy||!account||!auth.connected||conflict||isDemo()||isBlocked())return;
     if(!navigator.onLine){setPhase('pending','目前離線 · 本機變更會在連線後重試');return;}
+    const quiet=background&&phase==='synced'&&!dirty;
     busy=true;cancelTimer();const run=epoch,startRevision=revision;
-    setPhase('syncing');
+    // Routine version checks keep the last successful status visible.
+    // Transfers, conflicts and errors still update the status explicitly.
+    if(!quiet)setPhase('syncing');else refresh();
     try{
       const local=snapshot(getSnapshot()),localHash=await fingerprint(local);
       const result=await drive.read(cachedRemote);current(run);cachedRemote=result;
@@ -110,7 +114,7 @@ export function initCloudSync({getSnapshot,applySnapshot,isBlocked,isDemo,isEdit
       current(run);if(startRevision!==revision){schedule();return;}
       const sameOwner=meta.owner===account.sub&&meta.baselineClientId===clientId;
       const baseline=sameOwner?meta.baseline:null;
-      if(remoteHash===localHash){remember(localHash);dirty=false;}
+      if(remoteHash===localHash){if(!quiet||baseline!==localHash)remember(localHash);dirty=false;}
       else if(!hasData(local)&&!baseline&&remote){if(!await acceptRemote(remote,remoteHash,run,startRevision))return;}
       else if(meta.owner&&!sameOwner&&hasData(local)){makeConflict(local,remote,remoteHash,'此裝置先前連接了另一個 Google 帳號或雲端應用程式，請確認要使用的資料。');return;}
       else if(baseline&&localHash===baseline&&remote){if(!await acceptRemote(remote,remoteHash,run,startRevision))return;}
@@ -137,8 +141,8 @@ export function initCloudSync({getSnapshot,applySnapshot,isBlocked,isDemo,isEdit
       conflict=null;retries=0;setPhase(dirty?'pending':'synced');if(dirty)schedule();
     }catch(error){fail(error);}finally{busy=false;refresh();}
   }
-  function changed(){revision++;dirty=true;retries=0;if(!busy&&!conflict)setPhase(account?'pending':'disconnected');else refresh();schedule();}
-  function wake(){if(phase!=='error'||retries<4)schedule(250);}
+  function changed(){revision++;dirty=true;retries=0;if(!conflict&&(!busy||phase==='synced'))setPhase(account?'pending':'disconnected');else refresh();schedule();}
+  function wake(){if(phase!=='error'||retries<4)schedule(250,{background:true});}
   function exportRecovery(){
     try{
       const raw=localStorage.getItem(RECOVERY);if(!raw)return notice('此裝置尚無雲端版本切換的復原備份。');
