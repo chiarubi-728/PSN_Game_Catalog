@@ -12,7 +12,7 @@ function linkIndex(works){
 }
 function contributions(personal,work){
   if(!work)return {rows:[],keys:[]};
-  const keys=new Set([work.key,...(work.historyEntries||[]).map(historyRecordKey)]);
+  const keys=new Set([work.key,...(work.sourceWorkKeys||[]),...(work.historyEntries||[]).map(historyRecordKey)]);
   for(const member of work.members){
     const platform=member.platform?.trim().toUpperCase()||'';
     keys.add(platformWorkKey('entitlement:'+member.entitlementId,platform));
@@ -25,8 +25,12 @@ function contributions(personal,work){
     for(const row of index.get(key)||[])rows.set(row.id,row);
     for(const row of rows.values()){if(scoped(row.id))keys.add(row.id);for(const linked of row.record.linkedKeys||[])keys.add(linked);}
   }
-  const inherited=workRecordFor(personal,work);
-  if(![...rows.values()].some(row=>row.record===inherited))rows.set('legacy:'+work.key,{id:'legacy:'+work.key,record:inherited});
+  for(const source of work.sourceWorks||[work]){
+    const inherited=workRecordFor(personal,source);
+    // Attribute inherited legacy data to its source card. An explicit merged
+    // edit covers that scoped key, so cleared legacy markers stay cleared.
+    if(![...rows.values()].some(row=>row.record===inherited))rows.set(source.key,{id:source.key,record:inherited});
+  }
   return {rows:[...rows.values()],keys:[...keys].filter(scoped)};
 }
 const newer=(a,b)=>b.record.updatedAt.localeCompare(a.record.updatedAt)||a.id.localeCompare(b.id);

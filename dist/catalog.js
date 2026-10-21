@@ -3,6 +3,7 @@ import {gameTitleId} from './sony-platinums.js';
 import {titleMatch} from './title-aliases.js';
 import {officialNamesFor} from './store-names.js';
 import {localizeCatalogNames} from './catalog-display-names.js';
+import {groupVerifiedEditions} from './catalog-editions.js';
 import {historyRecordKey as historyKey} from './catalog-personal.js';
 export {catalogRecordFor,catalogRecordNotes} from './catalog-personal.js';
 const platformKey=game=>game.platforms.join('/');
@@ -12,7 +13,7 @@ function recordMembers(work){return [...work.members,...(work.officialNames||[])
 function matchesName(work,entry,personal){return platformKey(work)===platformKey(entry)&&(!entry.region||!work.digitalMembers.length||work.digitalMembers.some(g=>regionFor(g)===entry.region))&&titleMatch({...work,members:recordMembers(work)},entry.name,workRecordFor(personal,work));}
 export function unifiedCatalog(library,personal,history,storeNames){
   const missing=new Set(library.missingIds||[]);
-  const cards=platformGames(library.games,library.missingIds).map(work=>({...work,officialNames:officialNamesFor(work,storeNames),digitalMembers:work.members,digitalOwned:work.members.some(g=>!missing.has(g.entitlementId)),historyEntries:[],played:false,platinum:false}));
+  const cards=groupVerifiedEditions(platformGames(library.games,library.missingIds).map(work=>({...work,officialNames:officialNamesFor(work,storeNames),digitalMembers:work.members,digitalOwned:work.members.some(g=>!missing.has(g.entitlementId)),historyEntries:[],played:false,platinum:false})));
   const byTitleId=new Map();
   for(const card of cards)for(const member of card.members){const id=gameTitleId(member);if(id){if(!byTitleId.has(id))byTitleId.set(id,new Set());byTitleId.get(id).add(card);}}
   const direct=new Map();

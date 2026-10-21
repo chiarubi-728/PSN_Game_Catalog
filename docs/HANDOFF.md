@@ -1,3 +1,15 @@
+# 2026-10-21：Modern Warfare Remastered 語言授權作品卡整合
+
+使用者提供兩張數位卡片與 PSNProfiles 遊玩卡片（PS4，37%、21/51），並提供授權截圖：HP0002-CUSA05373_00-CODMWRTHEGAME001（中韓文版）與 UP0002-CUSA03522_00-ASIAWRTHEGAME001（英文版）。已查閱這兩個 exact product 的 PlayStation 台灣英文商品頁，確認為同款 PS4 Remastered 的語言版本。未取得兩版本共用 NPWR 的官方證據，不以此宣稱兩份授權共用獎盃，也不標示各授權都已玩過。
+
+新增 catalog-editions.js：明列 exact product ID、平台與官方來源，將核實的語言授權集中為作品／平台卡；不同語言授權、原始 entitlement、缺席及 PS Plus 標記仍逐筆保留。分組在來源配對前執行，使用穩定 key platform:PS4:identity:cod-modern-warfare-remastered。僅整張原卡片的所有數位成員都在同一已核實 product 表且平台一致時處理，不靠封面、名稱相似或全域刪除語言副標題分組。原始庫不重寫，授權筆數不變。一般平台、區域與雙向唯一獎盃候選檢查沿用；僅有一份符合的遊玩紀錄時接到作品卡，不推定特定語言授權使用狀態。多份獎盃清單仍保留，不為解決畫面重複而複製進度或改統計。
+
+catalog-personal 納入 sourceWorkKeys 與 sourceWorks，繼承舊作品 key 及原授權 fallback 的整理／筆記；來源 fallback 以來源卡片的 scoped key 識別，使新卡片明確清除時可覆蓋舊貢獻，避免忽略／分類復活。多筆筆記仍透過既有參考區保存；修改沿用 linkedKeys。不更改 JSON 格式、Google 同步或 userscript。
+
+官方來源：https://store.playstation.com/en-tw/product/HP0002-CUSA05373_00-CODMWRTHEGAME001 ，https://store.playstation.com/en-tw/product/UP0002-CUSA03522_00-ASIAWRTHEGAME001 。基準 c32f7b6，程式備份 outputs/backups/20261021-mwr-editions/before-mwr-editions-c32f7b6.zip。僅 JavaScript 語法、靜態來源／模組引用與 Git 差異、部署內容檢查，未新增或執行測試、未載入使用者完整私人資料驗收。既有資料刷新後重算，不需重新安裝腳本或重讀 Sony。
+
+---
+
 # 2026-10-21：PS5 MW3 數位與遊玩卡片未合併
 
 使用者截圖：PSNProfiles「Call of Duty: Modern Warfare III · PS5」40%、14/40 獎盃，Sony 數位庫「Call of Duty® Modern Warfare 3 · PS5」無遊玩紀錄，另有 PS4 數位版本。titleKey 已移除商標但保留冒號與羅馬數字，既有已確認配對表僅有 It Takes Two，故名稱不相等。官方頁確認 2023 MWIII 為 PS4/PS5 作品：https://www.playstation.com/en-us/games/call-of-duty-modern-warfare-iii/ ，https://store.playstation.com/en-us/concept/10011645 。數位庫使用數字 3 的名稱證據來自使用者截圖。
