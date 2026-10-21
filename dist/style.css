@@ -113,3 +113,7 @@ main{padding-top:27px}.catalog-header header{align-items:flex-start;gap:18px}.he
 
 /* Equal-height rows across the current page, while keeping square covers. */
 .grid{grid-auto-rows:1fr}.card{display:flex;flex-direction:column;min-width:0;align-self:stretch}.card .art{flex:none;width:100%}.card .card-body{flex:1;min-width:0}.card .alternate-name{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+
+/* Classification and membership use opposite corners of the reserved footer. */
+.card>.card-classification{position:absolute;left:13px;bottom:14px;display:inline-flex;align-items:center;justify-content:center;z-index:1}.card-classification .classification-icon{width:23px;height:23px;color:var(--classification-color)}.card.has-classification .card-body{padding-bottom:48px}
+@media(max-width:700px){.card>.card-classification{left:10px;bottom:12px}.card.has-classification .card-body{padding-bottom:46px}}

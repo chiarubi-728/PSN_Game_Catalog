@@ -117,13 +117,10 @@ function render(){
   const check=el('input');check.type='checkbox';check.className='card-check';check.checked=selected.has(id);check.setAttribute('aria-label','選取 '+g.name+' · '+g.platforms.join(' / '));check.onchange=()=>{check.checked?selected.add(id):selected.delete(id);renderBatch();};art.append(check);
   art.append(quickClassifications(g,r.status));art.append(el('span',g.platforms.join(' · ')||'PS','platform-badge'));card.append(art);
   const body=el('div',undefined,'card-body'),title=el('button',g.name+' · '+g.platforms.join(' / '),'game-title');title.onclick=()=>edit(g);body.append(title);
-  const alternate=g.names.find(name=>name!==g.name);if(alternate){const text=el('p',alternate,'alternate-name');text.title=alternate;body.append(text);}
-  const line=el('div',undefined,'card-meta card-markers');
   const item=classificationFor(r.status)||classificationFor(g.platinum?'已白金':'');
-  if(item){const pill=el('span',undefined,'status-pill');pill.dataset.tone=item.tone;pill.append(icon(item.icon),document.createTextNode(r.status==='已白金'&&!g.platinum?'個人白金標記':item.label));line.append(pill);}
+  if(item){const marker=el('span',undefined,'card-classification'),label=r.status==='已白金'&&!g.platinum?'個人白金標記':item.label;marker.dataset.tone=item.tone;marker.title=label;marker.setAttribute('role','img');marker.setAttribute('aria-label',label);marker.append(icon(item.icon));card.classList.add('has-classification');card.append(marker);}
   const plusMembers=g.digitalMembers.filter(member=>member.membership==='PS_PLUS');
   if(plusMembers.length){const badge=el('span',undefined,'ps-plus-badge'),historical=plusMembers.every(member=>missing.has(member.entitlementId));badge.title=historical?'歷史 PS Plus 授權（未出現在最近完整同步）':'授權來源：PS Plus';badge.dataset.historical=String(historical);badge.setAttribute('role','img');badge.setAttribute('aria-label',badge.title);badge.append(icon('ps-plus'));card.classList.add('has-ps-plus');card.append(badge);}
-  if(line.childElementCount)body.append(line);
   if(g.played){const text=[g.progress!==null?g.progress+'%':'獎盃紀錄已同步',g.earnedTotal!==null?g.earnedTotal+(g.definedTotal!==null?' / '+g.definedTotal:'')+' 個獎盃':''].filter(Boolean).join(' · ');body.append(el('p',text,'trophy-summary'));if(g.progress!==null){const progress=el('progress');progress.max=100;progress.value=g.progress;progress.setAttribute('aria-label','獎盃進度 '+g.progress+'%');body.append(progress);}}
   if(r.categories.length||r.tags.length)body.append(el('p',[...r.categories,...r.tags.map(t=>'#'+t)].join(' · '),'tags'));
   if(g.missingCount)body.append(el('p','部分或全部數位授權未出現在最近完整同步','missing'));

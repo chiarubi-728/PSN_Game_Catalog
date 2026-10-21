@@ -1,3 +1,13 @@
+# 2026-10-21：隱藏名稱別名小字，分類改左下角純圖示
+
+使用者要求隱藏卡片名稱下方的第二行別名，PS Plus 留右下，白金／忽略／追蹤移左下且只要圖案。app.js 不再建立 alternate-name 段落，names 與搜尋資料仍完整保留。分類建立 article.card 的直接子元素 card-classification，使用既有 tone SVG；title／role=img／aria-label 保留白金／個人白金標記／忽略／追蹤說明，無可見文字或 pill 框。原分類優先順序、來源白金判定與原封面快捷分類操作沿用。
+
+左下圖示定位 left:13px,bottom:14px（手機 10px/12px），與右下 PS Plus 同尺寸及底部基準；新增 has-classification 底部預留 48px（手機 46px），有任一角落圖示都不與進度／自訂分類內容重疊。自訂分類與標籤繼續文字顯示，同頁等高及方形封面沿用。未改來源配對、分類資料、存檔或 userscript。
+
+基準 f932ea1，程式備份 outputs/backups/20261021-card-corner-icons/before-card-corner-icons-f932ea1.zip。本次僅語法、靜態引用與 Git 差異、部署檢查，未新增或執行測試，未實機驗收畫面。發布到自己的 repo，刷新網站即可。
+
+---
+
 # 2026-10-21：同頁卡片統一高度
 
 使用者追問卡片大小不一。原 grid 隱含列為 auto，只保證同列等高，不同行因文字／分類／獎盃內容多寡而異。改 grid-auto-rows:1fr，使當頁所有列採相同高度；card 用 flex column/stretch，art flex:none 保留原 aspect-ratio:1，body 伸展填滿。未設固定像素高度或隱藏分類／進度，避免內容被硬截斷。高度依當頁所需最大內容決定，非所有裝置／所有頁面固定同一像素數。
