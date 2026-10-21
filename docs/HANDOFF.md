@@ -1,3 +1,13 @@
+# 2026-10-21：PS5 MW3 數位與遊玩卡片未合併
+
+使用者截圖：PSNProfiles「Call of Duty: Modern Warfare III · PS5」40%、14/40 獎盃，Sony 數位庫「Call of Duty® Modern Warfare 3 · PS5」無遊玩紀錄，另有 PS4 數位版本。titleKey 已移除商標但保留冒號與羅馬數字，既有已確認配對表僅有 It Takes Two，故名稱不相等。官方頁確認 2023 MWIII 為 PS4/PS5 作品：https://www.playstation.com/en-us/games/call-of-duty-modern-warfare-iii/ ，https://store.playstation.com/en-us/concept/10011645 。數位庫使用數字 3 的名稱證據來自使用者截圖。
+
+title-aliases.js 新增 verifiedPlatformTitleGroups，明列 MW3 的有／無冒號及 3／III 四種完整名稱，限制 PS4/PS5。titleMatch 的別名分支核對 work.platforms 後才允許，不全面替換羅馬數字，不移除版本副標題。沿用 catalog 的同平台、地區及雙向唯一候選規則，PS3 舊作與 MWII 不套用。只補來源配對規則，不改原始存檔、卡片 key、來源獎盃、統計或 userscript；合併後既有 catalog-personal 繼承來源標記／分類／筆記。既有資料於重載時重算配對。
+
+基準 7ec6d8f，程式備份 outputs/backups/20261021-mw3-matching/before-mw3-matching-7ec6d8f.zip。僅語法、靜態來源／Git 差異與部署檢查；未新增或執行測試，未載入使用者完整私人備份或驗收真實資料結果。相同平台多地區或多候選時仍保留獨立卡片，不為了隱藏重複強制合併。
+
+---
+
 # 2026-10-21：Google 雲端版本保護碼讀取修正
 
 使用者截圖顯示已登入 Google，但錯誤「無法取得雲端版本保護資訊，已暫停同步以避免覆蓋」。程式確認觸發於更新既有檔案：v3 只取 response.headers ETag，before.etag 與 media.etag 都為空便停止。無法僅由截圖分辨 Google 未回傳標頭或瀏覽器未公開標頭；不宣稱已讀取使用者的實際網路請求。

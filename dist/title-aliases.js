@@ -7,6 +7,22 @@ export const verifiedTitleGroups = [{
     'https://store.playstation.com/zh-hant-tw/product/UP0006-PPSA02342_00-ITTAKESTWORETAIL',
   ],
 }];
+// The Sony library's numeric spelling and the trophy title's Roman spelling
+// refer to the 2023 game on PS4/PS5. Keep this scoped: the PS3 MW3 is distinct.
+// These aliases establish matching only; they do not strip edition subtitles.
+export const verifiedPlatformTitleGroups=[{
+  platforms:['PS4','PS5'],
+  names:[
+    'Call of Duty: Modern Warfare III',
+    'Call of Duty Modern Warfare III',
+    'Call of Duty: Modern Warfare 3',
+    'Call of Duty Modern Warfare 3',
+  ],
+  sources:[
+    'https://www.playstation.com/en-us/games/call-of-duty-modern-warfare-iii/',
+    'https://store.playstation.com/en-us/concept/10011645',
+  ],
+}];
 // Display aliases may cross platforms without joining their source records.
 export const verifiedDisplayTitleGroups=[...verifiedTitleGroups,{
   names:['Destiny 2','天命2'],
@@ -47,7 +63,7 @@ export const verifiedSearchSeries=[{
 export function titleKey(name) {
   return name.replace(/[™®]/g,'').normalize('NFKC').replace(/[‘’]/g,"'").replace(/[‐‑–—]/g,'-').replace(/\s+/g,' ').trim().toLowerCase();
 }
-const groups=verifiedTitleGroups.map(group=>new Set(group.names.map(titleKey)));
+const groups=[...verifiedTitleGroups,...verifiedPlatformTitleGroups].map(group=>({...group,keys:new Set(group.names.map(titleKey))}));
 export function hasRememberedTitle(record,name){
   const key=titleKey(name);
   return !!key&&(record.titleAliases||[]).some(alias=>titleKey(alias)===key);
@@ -57,7 +73,7 @@ export function titleMatch(work,name,record){
   const names=work.members.map(g=>titleKey(g.name));
   if(names.includes(key))return 'name-platform';
   if(hasRememberedTitle(record,name))return 'remembered-title';
-  if(groups.some(group=>group.has(key)&&names.some(other=>group.has(other))))return 'localized-title';
+  if(groups.some(group=>(!group.platforms||work.platforms?.length&&work.platforms.every(platform=>group.platforms.includes(platform)))&&group.keys.has(key)&&names.some(other=>group.keys.has(other))))return 'localized-title';
   return null;
 }
 export function rememberTitle(record,name){
