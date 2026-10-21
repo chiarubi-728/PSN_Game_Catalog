@@ -29,7 +29,7 @@ export function initUnifiedSync({historySync,getState,saveLibrary,confirmAccount
     clean();if(stage==='history')historySync.cancel();if(stage==='names')cancelNames();
     say((run.digitalSaved?'數位授權已保存。':'')+error.message);$('sync-retry').hidden=false;
   }
-  function finish(run,text){if(active!==run)return;clean();$('sync-retry').hidden=true;say(text);notice(text);}
+  function finish(run,text){if(active!==run)return;clean();$('sync-retry').hidden=true;say(text);$('sync-state').textContent='遊戲庫同步完成';notice(text);}
   async function names(run,snapshot){
     if(active!==run)return;clearInterval(run.watcher);run.stage='names';step('names','running');
     say('3 / 3 · 正在自動補齊官方中英文名稱。');

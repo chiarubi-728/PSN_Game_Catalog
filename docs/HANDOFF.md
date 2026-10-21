@@ -1,3 +1,15 @@
+# 2026-10-21：首頁緊湊摘要與 PS Plus 金色圖示
+
+使用者提供上游最新首頁及 repo，偏好其較簡潔的標題／統計與金色 PS Plus 小圖案。已閱讀 https://github.com/promise82114/ps-game-base 與 raw main 的 index/style/icons/app 作視覺參考（下載於工作區 work/reference-ui-20261021，未加入自己的 repo）。只調整自己的首頁顯示，沒有合併上游整個分支、恢復已移除篩選或引入上游分類／同步／分組規則。使用者原有 PS4/PS5 分開、忽略專屬、自訂分類與資料保護沿用。
+
+移除首頁英文眉題與 /LIBRARY 裝飾，標題旁僅所有遊戲顯示全庫平台卡數；帳號／最近來源更新時間、Google 狀態並排且窄螢幕換行，錯誤狀態不截斷。統計改上排總數（含忽略）／尚未整理，下排來源白金／追蹤／忽略，數位擁有與來源遊玩紀錄為輔助文字。保留全部既有統計 ID 並新增三個側欄一致的分類計數；來源白金仍依 trophyStatistics 計數，不混入個人白金。其他清單仍隱藏整塊統計與標題全庫數。搜尋縮短留白與寬度但沿用原行為。同步完成的頁面摘要改短，詳細訊息保留於進度視窗，失敗訊息仍顯示。
+
+icons.js 新增本機金色 plus SVG，卡片 ownership-row 與側欄入口使用；不加網路素材或套件。只依 digitalMembers 的 membership=PS_PLUS 顯示，全部為 missingIds 時較淡並加歷史授權說明；不是目前訂閱或啟動權限驗證，不由獎盃反推來源。新增響應式樣式與隱藏文字標籤，保留鍵盤焦點、aria-label 及資料保存提示。不更改存檔格式、配對、雲端寫入、授權或 userscript。
+
+基準 c8433f8，程式備份 outputs/backups/20261021-compact-home/before-compact-home-c8433f8.zip。僅語法、靜態模組／HTML ID 引用及 Git 差異、部署內容檢查，未新增或執行測試，未進行瀏覽器畫面或私人帳號驗收。發布到自己的 chiarubi-728/PSN_Game_Catalog；重新載入網站即可取得新版。
+
+---
+
 # 2026-10-21：Modern Warfare Remastered 語言授權作品卡整合
 
 使用者提供兩張數位卡片與 PSNProfiles 遊玩卡片（PS4，37%、21/51），並提供授權截圖：HP0002-CUSA05373_00-CODMWRTHEGAME001（中韓文版）與 UP0002-CUSA03522_00-ASIAWRTHEGAME001（英文版）。已查閱這兩個 exact product 的 PlayStation 台灣英文商品頁，確認為同款 PS4 Remastered 的語言版本。未取得兩版本共用 NPWR 的官方證據，不以此宣稱兩份授權共用獎盃，也不標示各授權都已玩過。

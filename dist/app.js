@@ -54,6 +54,7 @@ function el(tag,text,className){const n=document.createElement(tag);if(text!==un
 function option(select,value,label){const n=el('option',label??value);n.value=value;select.append(n);}
 for(const item of classificationOptions){const label=el('label',undefined,'status-choice'),input=el('input'),visual=el('span',undefined,'status-option');input.type='radio';input.name='classification';input.value=item.value;visual.dataset.tone=item.tone;visual.append(icon(item.icon),el('span',item.label));label.append(input,visual);$('edit-classifications').append(label);input.onchange=()=>{if(input.checked)setEditorStatus(input.value);};}
 for(const b of $('views').querySelectorAll('[data-classification]')){const item=classificationFor(b.dataset.classification);b.dataset.tone=item.tone;b.prepend(icon(item.icon));}
+for(const node of document.querySelectorAll('[data-icon]'))node.prepend(icon(node.dataset.icon));
 let editorClassificationChanged=false;
 function setEditorStatus(value,initial=false){editorClassificationChanged=!initial;$('edit-status').value=value;for(const input of $('edit-classifications').querySelectorAll('input'))input.checked=input.value===value;$('legacy-status').hidden=value==='未開始'||!!classificationFor(value);$('legacy-status').textContent=`保留舊狀態「${value}」。選擇上方分類或清除分類後，才會變更原狀態。`;}
 $('clear-status').onclick=()=>setEditorStatus('未開始');
@@ -72,18 +73,27 @@ function render(){
  $('exclude-organized').checked=excludeOrganized;
  $('catalog-stats').hidden=view!=='all'||!!category;
  $('membership-options').hidden=exclusion===null;
+ $('heading-count').hidden=$('catalog-stats').hidden;
+ const missing=new Set(state.library.missingIds||[]);
 
- $('stat-total').textContent=games.length;
+ $('stat-total').textContent=$('heading-total').textContent=games.length;
+ const overview={unorganized:0,tracked:0,ignored:0};
+ for(const game of games){const r=record(game.key);for(const key of Object.keys(overview))if(catalogView(game,r,key))overview[key]++;}
+ for(const [key,count] of Object.entries(overview))$('stat-'+key).textContent=count;
  $('stat-entitlements').textContent=state.library.games.length+' 筆原始數位授權';
  const trophyStats=trophyStatistics(state.history),providerName={psnprofiles:'PSNProfiles',sony:'Sony'}[trophyStats.provider];
- $('stat-platinum').textContent=trophyStats.platinum;$('stat-platinum-label').textContent=providerName?providerName+' 白金':'已取得白金';
- $('stat-platinum-note').textContent=providerName?'依來源獎盃 ID 計數；個人標記另存':'同步遊玩紀錄後顯示來源白金數';
+ $('stat-platinum').textContent=trophyStats.platinum;$('stat-platinum-label').textContent='來源白金';
+ $('stat-platinum-note').textContent=providerName?providerName+' · 依來源獎盃 ID 計數；個人標記另存':'同步遊玩紀錄後顯示來源白金數';
+ $('stat-platinum-caption').title=$('stat-platinum-note').textContent;
  $('stat-owned').textContent=games.filter(g=>g.digitalOwned).length;$('stat-played').textContent=trophyStats.played;
  $('stat-played-note').textContent=providerName?providerName+' · '+trophyStats.unfinished+' 款尚未白金'+(trophyStats.coverage==='platinum'?'（僅舊白金資料）':''):'同步來源的全部遊玩紀錄';
  const sources=Object.values(state.history?.sources||{});
- $('summary').textContent=demo?'示範模式 · 操作不會寫入你的遊戲庫':sources.length?(state.history.profile+' · 數位授權與 '+sources.map(source=>source.provider==='psnprofiles'?'PSNProfiles':'Sony').join(' / ')+' 遊玩紀錄已合併'+(storageFailed?' · 儲存失敗，請匯出備份':'')):'保留數位遊戲庫，再同步 PSNProfiles 的全部遊玩與獎盃紀錄。';
+ const times=[state.library.syncedAt,...sources.map(item=>item.updatedAt)].map(value=>Date.parse(value)).filter(Number.isFinite),latest=times.length?Math.max(...times):null;
+ const profile=state.library.account?.profile||state.history?.profile;
+ $('summary').textContent=demo?'示範模式 · 操作不會寫入你的遊戲庫':[profile,latest?'最近更新 '+new Date(latest).toLocaleString('zh-TW',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):'匯入或同步你的遊戲庫。'].filter(Boolean).join(' · ');
+ $('stat-played-detail').title=$('stat-played-note').textContent;
  const names={all:'所有遊戲',unorganized:'尚未整理','ps-plus':'PS Plus','non-ps-plus':'非 PS Plus',platinum:'白金',ignored:'忽略',tracked:'追蹤'};
- $('heading').replaceChildren(el('span',category?names[view]+' · '+category:names[view]),el('small',' / LIBRARY'));
+ $('heading').textContent=category||names[view];
  for(const b of $('views').querySelectorAll('button')){const active=b.dataset.view===view;b.classList.toggle('active',active);b.setAttribute('aria-pressed',String(active));}
  const batchChoice=$('batch-category').value;
  $('categories').replaceChildren();$('batch-category').replaceChildren();option($('batch-category'),'','選擇分類');
@@ -105,7 +115,11 @@ function render(){
   art.append(quickClassifications(g,r.status));art.append(el('span',g.platforms.join(' · ')||'PS','platform-badge'));card.append(art);
   const body=el('div',undefined,'card-body'),title=el('button',g.name+' · '+g.platforms.join(' / '),'game-title');title.onclick=()=>edit(g);body.append(title);
   const alternate=g.names.find(name=>name!==g.name);if(alternate)body.append(el('p',alternate,'alternate-name'));
-  const ownership=el('span',g.digitalOwned?'數位擁有':g.digitalMembers.length?'歷史數位授權':'遊玩紀錄','ownership-label');ownership.dataset.owned=String(g.digitalOwned);body.append(ownership);
+  const ownership=el('span',g.digitalOwned?'數位擁有':g.digitalMembers.length?'歷史數位授權':'遊玩紀錄','ownership-label');ownership.dataset.owned=String(g.digitalOwned);
+  const ownershipRow=el('div',undefined,'ownership-row');ownershipRow.append(ownership);
+  const plusMembers=g.digitalMembers.filter(member=>member.membership==='PS_PLUS');
+  if(plusMembers.length){const badge=el('span',undefined,'ps-plus-badge'),historical=plusMembers.every(member=>missing.has(member.entitlementId));badge.title=historical?'歷史 PS Plus 授權（未出現在最近完整同步）':'授權來源：PS Plus';badge.dataset.historical=String(historical);badge.setAttribute('role','img');badge.setAttribute('aria-label',badge.title);badge.append(icon('ps-plus'));ownershipRow.append(badge);}
+  body.append(ownershipRow);
   const item=classificationFor(g.platinum?'已白金':r.status),pill=el('span',undefined,'status-pill');
   if(item){pill.dataset.tone=item.tone;pill.append(icon(item.icon),document.createTextNode(g.platinum?item.label:r.status==='已白金'?'個人白金標記':item.label));}else pill.textContent=g.played?'尚未白金':'未分類';
   const line=el('div',undefined,'card-meta');line.append(pill,el('span',g.played?'已玩':'尚無遊玩紀錄'));body.append(line);
