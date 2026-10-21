@@ -54,6 +54,16 @@ export const verifiedProductTitleGroups=[{
     'https://store.playstation.com/en-us/product/UP0006-PPSA34132_00-BATTLEFIELDMULTI',
     'https://store.playstation.com/zh-hant-tw/product/UP0006-PPSA34132_00-BATTLEFIELDMULTI',
   ],
+},{
+  productId:'HP9000-CUSA10218_00-HRZCE00000000000',
+  names:[
+    'Horizon Zero Dawn: Complete Edition',
+    'Horizon Zero Dawn: Complete Edition PlayStationHits',
+  ],
+  sources:[
+    'https://store.playstation.com/en-tw/product/HP9000-CUSA10218_00-HRZCE00000000000',
+    'https://store.playstation.com/zh-hant-tw/product/HP9000-CUSA10218_00-HRZCE00000000000',
+  ],
 }];
 // Franchise labels expand search terms only, never game identity or ownership.
 export const verifiedSearchSeries=[{

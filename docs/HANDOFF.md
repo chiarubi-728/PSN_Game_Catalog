@@ -1,3 +1,13 @@
+# 2026-10-21：Horizon Zero Dawn 完整版誤顯示為美術設定集
+
+使用者截圖顯示作品卡「《Horizon Zero Dawn》美術設定集 · PS4」，兩筆數位授權皆為 HP9000-CUSA10218_00-HRZCE00000000000，已配對 PSNProfiles Horizon Zero Dawn 白金、70%。官方名稱對照包含 Complete Edition PlayStationHits 與 Horizon Zero Dawn。已查閱該 exact product 的台灣繁中與英文頁，主商品標題是 Horizon Zero Dawn: Complete Edition PlayStationHits，美術畫集是收錄內容之一。從截圖與 localizeCatalogNames 的中文來源標籤優先規則定位為顯示名稱信任問題，未直接讀取使用者原始 JSON，不宣稱已確認個別 entitlement 原標籤的上游來源。
+
+verifiedProductTitleGroups 加入 exact product 的正式完整版名稱，支援英文名稱回退（有中文優先、否則第一個正式名稱），保留 Complete Edition 版別。未把 base game、Remastered 或單獨美術集列為跨作品別名。localizeCatalogNames 加 supplementalTitle，含美術設定集／畫集／原聲帶／artbook／soundtrack 的來源名稱不建立全庫中文對照；官方 product/invariant 名稱也排除附屬內容標籤，已核實遊戲商品的輸出搜尋 aliases 不帶附屬內容誤標籤。真正獨立美術集的原始卡片仍保留，不依關鍵字刪除任何授權或更改其商品 ID。
+
+更動僅顯示名稱與衍生搜尋別名，原始庫／名稱快取／獎盃／key／個人整理／來源配對沿用，重新載入會重算。官方來源：https://store.playstation.com/zh-hant-tw/product/HP9000-CUSA10218_00-HRZCE00000000000 ，https://store.playstation.com/en-tw/product/HP9000-CUSA10218_00-HRZCE00000000000 。基準 40123f0，程式備份 outputs/backups/20261021-horizon-title/before-horizon-title-40123f0.zip。僅語法、靜態引用／Git 差異及部署內容檢查，未新增或執行測試，未實機驗收私人資料結果。
+
+---
+
 # 2026-10-21：隱藏名稱別名小字，分類改左下角純圖示
 
 使用者要求隱藏卡片名稱下方的第二行別名，PS Plus 留右下，白金／忽略／追蹤移左下且只要圖案。app.js 不再建立 alternate-name 段落，names 與搜尋資料仍完整保留。分類建立 article.card 的直接子元素 card-classification，使用既有 tone SVG；title／role=img／aria-label 保留白金／個人白金標記／忽略／追蹤說明，無可見文字或 pill 框。原分類優先順序、來源白金判定與原封面快捷分類操作沿用。

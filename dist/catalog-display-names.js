@@ -3,6 +3,9 @@ import {cleanStoreTitle} from './store-names.js';
 
 const hasChinese=name=>/\p{Script=Han}/u.test(name);
 const displayKey=name=>titleKey(cleanStoreTitle(name)).replace(/\s/g,'');
+// Supplement labels may share their parent game's product/invariant metadata.
+// They are not evidence for renaming every card with that game's English name.
+const supplementalTitle=name=>/美術設定集|美术设定集|美術畫集|美术画集|(?:數位|数字)[畫画]集|原聲帶|原声带|\bart[\s-]*books?\b|\bsound[\s-]*tracks?\b/i.test(name);
 
 // Build a display-only index from exact, documented title equivalences.
 // Keep product editions intact and never use concept titles as edition aliases.
@@ -29,8 +32,9 @@ export function localizeCatalogNames(cards,storeNames){
   for(const card of cards)for(const member of card.digitalMembers){
     if(products.has(member.productId?.trim().toUpperCase()))continue;
     const record=storeNames?.records?.[member.productId?.trim().toUpperCase()];
-    const productNames=(record?.names||[]).filter(item=>item.type==='product'||item.type==='invariant').map(item=>item.name);
+    const productNames=(record?.names||[]).filter(item=>item.type==='product'||item.type==='invariant').map(item=>item.name).filter(name=>!supplementalTitle(name));
     const original=cleanStoreTitle(member.name);
+    if(supplementalTitle(original))continue;
     const known=knownNames.get(displayKey(original));
     const preferred=known?.size===1?[...known][0]:hasChinese(original)?original:undefined;
     addGroup([member.name,...productNames],preferred);
@@ -39,8 +43,8 @@ export function localizeCatalogNames(cards,storeNames){
     const identities=card.digitalMembers.map(member=>products.get(member.productId?.trim().toUpperCase()));
     const identity=identities[0];
     if(identity&&identities.every(group=>group===identity)){
-      const name=identity.names.find(hasChinese),preferred=displayKey(name);
-      const originalNames=card.names.filter(alias=>{const known=knownNames.get(displayKey(alias));return !known||known.size===1&&displayKey([...known][0])===preferred;});
+      const name=identity.names.find(hasChinese)||identity.names[0],preferred=displayKey(name);
+      const originalNames=card.names.filter(alias=>{if(supplementalTitle(alias)&&!supplementalTitle(name))return false;const known=knownNames.get(displayKey(alias));return !known||known.size===1&&displayKey([...known][0])===preferred;});
       return {...card,name,names:[...new Set([name,...identity.names,...originalNames])]};
     }
     const candidates=localized.get(displayKey(card.name));
