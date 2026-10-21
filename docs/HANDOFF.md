@@ -1,3 +1,13 @@
+# 2026-10-21：同頁卡片統一高度
+
+使用者追問卡片大小不一。原 grid 隱含列為 auto，只保證同列等高，不同行因文字／分類／獎盃內容多寡而異。改 grid-auto-rows:1fr，使當頁所有列採相同高度；card 用 flex column/stretch，art flex:none 保留原 aspect-ratio:1，body 伸展填滿。未設固定像素高度或隱藏分類／進度，避免內容被硬截斷。高度依當頁所需最大內容決定，非所有裝置／所有頁面固定同一像素數。
+
+原標題仍最多兩行；alternate-name 新增兩行 clamp，完整文字留在 DOM 與 title，搜尋繼續使用完整 names。PS Plus 絕對定位與底部保留空間沿用，可對齊卡片底部。此版含前兩版字體、平台標籤、白金名稱、綠色追蹤及 Plus 位置調整。
+
+基準 cdaaf25，程式備份 outputs/backups/20261021-equal-card-height/before-equal-card-height-cdaaf25.zip。僅語法、靜態來源／引用、Git 差異及部署檢查，未新增或執行測試，未實機驗收畫面。未改來源資料、存檔或配對。
+
+---
+
 # 2026-10-21：PS Plus 圖示固定於卡片右下角
 
 使用者指出 Plus 圖示隨文字長度出現不同高度，要求固定卡片右下角。app.js 將圖示從 card-markers 移至 article.card 直接子元素，並加 has-ps-plus；card 設 relative、badge 設 absolute right/bottom，卡片底部有圖示時預留 48px（手機 46px），避免與文字／進度重疊。沒有分類就不插入 card-markers 空列。歷史授權樣式、提示與 aria-label 沿用，不改來源判斷或資料。

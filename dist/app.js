@@ -117,7 +117,7 @@ function render(){
   const check=el('input');check.type='checkbox';check.className='card-check';check.checked=selected.has(id);check.setAttribute('aria-label','選取 '+g.name+' · '+g.platforms.join(' / '));check.onchange=()=>{check.checked?selected.add(id):selected.delete(id);renderBatch();};art.append(check);
   art.append(quickClassifications(g,r.status));art.append(el('span',g.platforms.join(' · ')||'PS','platform-badge'));card.append(art);
   const body=el('div',undefined,'card-body'),title=el('button',g.name+' · '+g.platforms.join(' / '),'game-title');title.onclick=()=>edit(g);body.append(title);
-  const alternate=g.names.find(name=>name!==g.name);if(alternate)body.append(el('p',alternate,'alternate-name'));
+  const alternate=g.names.find(name=>name!==g.name);if(alternate){const text=el('p',alternate,'alternate-name');text.title=alternate;body.append(text);}
   const line=el('div',undefined,'card-meta card-markers');
   const item=classificationFor(r.status)||classificationFor(g.platinum?'已白金':'');
   if(item){const pill=el('span',undefined,'status-pill');pill.dataset.tone=item.tone;pill.append(icon(item.icon),document.createTextNode(r.status==='已白金'&&!g.platinum?'個人白金標記':item.label));line.append(pill);}
