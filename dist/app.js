@@ -7,7 +7,7 @@ import {emptyStoreNames,readStoreNames,mergeStoreNames} from './store-names.js';
 import {initStoreNames} from './store-names-ui.js';
 import {classificationOptions, classificationFor, matchesClassification, library, personal, emptyPersonal, blankRecord, workRecordFor, hasWorkConflicts, platformGames as groupGames, needsPlatformPlatinumReview, matchesWorkFilters, mergeLibrary, parseImport} from './model.js';
 import {icon} from './icons.js';
-import {titleKey} from './title-aliases.js';
+import {catalogSearchKey,matchesCatalogSearch} from './catalog-search.js';
 import {initCloudSync} from './cloud-sync.js';
 
 const $ = id => document.getElementById(id), KEY = 'ps-game-base.v1', RELEASE_BACKUP_KEY='ps-game-base.before-auto-cloud.645fc84';
@@ -35,7 +35,7 @@ function backup(){return {schemaVersion:1,kind:'ps-game-base-backup',exportedAt:
 function download(value,name){const url=URL.createObjectURL(new Blob([JSON.stringify(value,null,2)],{type:'application/json'}));const a=el('a');a.href=url;a.download=`ps-game-base-${name}-${new Date().toISOString().slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),10000);}
 function render(){
  const games=unifiedCatalog(state.library,state.personal,state.history,state.storeNames);works=new Map(games.map(g=>[g.key,g]));
- const query=titleKey($('catalog-search').value);
+ const query=catalogSearchKey($('catalog-search').value);
  $('clear-search').disabled=!$('catalog-search').value;
  const exclusion=exclusionContext();
  const excludeOrganized=exclusion!==null&&exclusionSettings[exclusion];
@@ -60,7 +60,7 @@ function render(){
  for(const item of classificationOptions)option($('batch-category'),'mark:'+item.value,item.value==='已白金'?'白金（個人標記）':item.label);
  for(const c of state.personal.categories){const b=el('button','◌　'+c);b.classList.toggle('active',category===c);b.onclick=()=>{category=c;if(view==='unorganized'||view==='ignored')view='all';page=1;render();};$('categories').append(b);option($('batch-category'),'category:'+c,classificationOptions.some(item=>item.label===c)?c+'（自訂）':c);}
  if([...$('batch-category').options].some(item=>item.value===batchChoice))$('batch-category').value=batchChoice;
- const filtered=games.filter(game=>{const r=record(game.key);return (!category||r.status!=='不再遊玩'&&r.categories.includes(category))&&catalogView(game,r,view==='unorganized'?'all':view)&&(!excludeOrganized||catalogView(game,r,'unorganized'))&&(!query||[...game.names,...(r.titleAliases||[])].some(name=>titleKey(name).includes(query)));});
+ const filtered=games.filter(game=>{const r=record(game.key);return (!category||r.status!=='不再遊玩'&&r.categories.includes(category))&&catalogView(game,r,view==='unorganized'?'all':view)&&(!excludeOrganized||catalogView(game,r,'unorganized'))&&(!query||matchesCatalogSearch([...game.names,...(r.titleAliases||[])],query));});
  filtered.sort((a,b)=>a.name.localeCompare(b.name,'zh-Hant')||a.key.localeCompare(b.key));
  const pages=Math.max(1,Math.ceil(filtered.length/48));page=Math.min(page,pages);shown=filtered.slice((page-1)*48,page*48);
  $('grid').replaceChildren();$('empty').hidden=filtered.length>0;

@@ -1,3 +1,13 @@
+# 2026-10-21：戰地系列中英文搜尋與 REDSEC 商品名稱修正
+
+使用者回報搜尋 battl 與戰地結果不同；Sony 庫「戰地風雲 6」官方別名為 Battlefield REDSEC，PSNProfiles Battlefield 6 未配對。使用者提供版本授權截圖，商品 ID 是 UP0006-PPSA34132_00-BATTLEFIELDMULTI。已查閱 Sony 同商品英文與繁中頁，現行名稱為 Battlefield REDSEC／戰地風雲 禁區衝突，屬免費商品；不據此認定擁有 BF6 本體，也不將兩者設為同一遊戲別名。
+
+新增 catalog-search.js，僅搜尋忽略空白、書名括號，依核實的 Battlefield／戰地風雲系列名稱擴充前綴別名，保留原數字與副標題。title-aliases.js 擴充顯示對照（1、4、V/5、2042、6、REDSEC），每組保存官方來源；verifiedTitleGroups 與 titleMatch 的來源配對規則未改。catalog-display-names.js 依已核實的 exact product ID 覆蓋舊顯示名稱，避免這筆 REDSEC 污染全域名稱對照；搜尋名稱移除已知相衝突的 BF6 舊別名。一般顯示名稱比較忽略空白，採已確認的中文規範名稱，防止中文空白差異產生衝突。原始來源、存檔、卡片 key、分類、筆記及獎盃仍保留；未新增請求或更改整合腳本。
+
+基準 HEAD a21fe24，程式碼已備份至 outputs/backups/20261021-bilingual-series-search/before-bilingual-series-search-a21fe24.zip。僅語法、來源、Git 差異及部署 HTTP 檢查，未新增或執行測試，未讀取使用者完整私人資料庫。未要求使用者手動配對；商品 ID 截圖僅用於診斷衝突。
+
+---
+
 # 2026-10-21：跨平台統一顯示已確認的中文名稱
 
 使用者以 PS5 PSNProfiles「Destiny 2」及 PS4 數位庫「天命2」為例，要求不同平台名稱一致。新增 catalog-display-names.js，在 unifiedCatalog 完成來源配對後才計算顯示名稱；以已核實的名稱組及數位商品原名搭配官方 product／invariant 名稱建立精確別名索引。優先採既有中文原名；多個不同中文候選時不猜測。保留版本副標題，不使用 concept 名稱建立跨版本別名，不改動來源配對、卡片 key、存檔或來源資料。title-aliases.js 新增獨立的 verifiedDisplayTitleGroups，天命2依 PlayStation 台灣官方頁確認，未更動用於來源配對的 verifiedTitleGroups。

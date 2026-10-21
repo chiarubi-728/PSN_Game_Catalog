@@ -11,6 +11,38 @@ export const verifiedTitleGroups = [{
 export const verifiedDisplayTitleGroups=[...verifiedTitleGroups,{
   names:['Destiny 2','天命2'],
   sources:['https://www.playstation.com/zh-hant-tw/games/destiny-2/'],
+},{
+  names:['Battlefield 1','戰地風雲 1'],
+  sources:['https://www.ea.com/zh-hant/games/battlefield/battlefield-1/buy/addon/battlefield-1-they-shall-not-pass'],
+},{
+  names:['Battlefield 4','戰地風雲 4'],
+  sources:['https://www.playstation.com/zh-hant-tw/games/battlefield-4/'],
+},{
+  names:['Battlefield V','Battlefield 5','戰地風雲 5'],
+  sources:['https://www.playstation.com/zh-hant-tw/games/battlefield-v/'],
+},{
+  names:['Battlefield 2042','戰地風雲 2042'],
+  sources:['https://www.playstation.com/zh-hant-tw/games/battlefield-2042/'],
+},{
+  names:['Battlefield 6','戰地風雲 6'],
+  sources:['https://www.playstation.com/zh-hant-tw/games/battlefield-6/'],
+},{
+  names:['Battlefield REDSEC','戰地風雲 禁區衝突'],
+  sources:['https://www.playstation.com/zh-hant-tw/games/battlefield-redsec/'],
+}];
+// Exact current product identity takes precedence over a stale library label.
+export const verifiedProductTitleGroups=[{
+  productId:'UP0006-PPSA34132_00-BATTLEFIELDMULTI',
+  names:['Battlefield REDSEC','戰地風雲 禁區衝突'],
+  sources:[
+    'https://store.playstation.com/en-us/product/UP0006-PPSA34132_00-BATTLEFIELDMULTI',
+    'https://store.playstation.com/zh-hant-tw/product/UP0006-PPSA34132_00-BATTLEFIELDMULTI',
+  ],
+}];
+// Franchise labels expand search terms only, never game identity or ownership.
+export const verifiedSearchSeries=[{
+  names:['Battlefield','戰地風雲'],
+  sources:['https://www.playstation.com/zh-hant-tw/games/battlefield-v/'],
 }];
 export function titleKey(name) {
   return name.replace(/[™®]/g,'').normalize('NFKC').replace(/[‘’]/g,"'").replace(/[‐‑–—]/g,'-').replace(/\s+/g,' ').trim().toLowerCase();
