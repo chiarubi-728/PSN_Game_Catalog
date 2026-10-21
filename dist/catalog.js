@@ -51,6 +51,9 @@ export function catalogRecordFor(personal,work){
 }
 export const catalogPlatinum=work=>work.platinum===true;
 export function catalogView(work,record,view){
+  // Ignored games are visible only in their dedicated view, even if platinum.
+  if(record.status==='不再遊玩')return view==='ignored';
+  if(view==='ignored')return false;
   if(view==='ps-plus')return work.digitalMembers.some(member=>member.membership==='PS_PLUS');
   if(view==='non-ps-plus')return work.digitalMembers.some(member=>member.membership==='NONE');
   if(view==='unorganized')return !catalogPlatinum(work)&&record.status==='未開始'&&record.categories.length===0;
@@ -60,7 +63,6 @@ export function catalogView(work,record,view){
   if(view==='history-only')return work.played&&!work.digitalOwned;
   if(view==='platinum')return catalogPlatinum(work,record);
   if(view==='missing')return work.missingCount>0;
-  if(view==='ignored')return record.status==='不再遊玩';
   if(view==='tracked')return record.status==='想玩';
   return true;
 }

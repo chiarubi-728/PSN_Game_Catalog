@@ -42,7 +42,7 @@ function render(){
  $('exclude-organized').checked=excludeOrganized;
  $('catalog-stats').hidden=view!=='all'||!!category;
  $('membership-options').hidden=exclusion===null;
- for(const id of [...selected])if(!works.has(id)||excludeOrganized&&!catalogView(works.get(id),record(id),'unorganized'))selected.delete(id);
+ for(const id of [...selected])if(!works.has(id)||record(id).status==='不再遊玩'&&(view!=='ignored'||!!category)||excludeOrganized&&!catalogView(works.get(id),record(id),'unorganized'))selected.delete(id);
  $('stat-total').textContent=games.length;
  $('stat-entitlements').textContent=state.library.games.length+' 筆原始數位授權';
  const trophyStats=trophyStatistics(state.history),providerName={psnprofiles:'PSNProfiles',sony:'Sony'}[trophyStats.provider];
@@ -58,9 +58,9 @@ function render(){
  const batchChoice=$('batch-category').value;
  $('categories').replaceChildren();$('batch-category').replaceChildren();option($('batch-category'),'','選擇分類');
  for(const item of classificationOptions)option($('batch-category'),'mark:'+item.value,item.value==='已白金'?'白金（個人標記）':item.label);
- for(const c of state.personal.categories){const b=el('button','◌　'+c);b.classList.toggle('active',category===c);b.onclick=()=>{category=c;if(view==='unorganized')view='all';page=1;render();};$('categories').append(b);option($('batch-category'),'category:'+c,classificationOptions.some(item=>item.label===c)?c+'（自訂）':c);}
+ for(const c of state.personal.categories){const b=el('button','◌　'+c);b.classList.toggle('active',category===c);b.onclick=()=>{category=c;if(view==='unorganized'||view==='ignored')view='all';page=1;render();};$('categories').append(b);option($('batch-category'),'category:'+c,classificationOptions.some(item=>item.label===c)?c+'（自訂）':c);}
  if([...$('batch-category').options].some(item=>item.value===batchChoice))$('batch-category').value=batchChoice;
- const filtered=games.filter(game=>{const r=record(game.key);return (!category||r.categories.includes(category))&&catalogView(game,r,view==='unorganized'?'all':view)&&(!excludeOrganized||catalogView(game,r,'unorganized'))&&(!query||[...game.names,...(r.titleAliases||[])].some(name=>titleKey(name).includes(query)));});
+ const filtered=games.filter(game=>{const r=record(game.key);return (!category||r.status!=='不再遊玩'&&r.categories.includes(category))&&catalogView(game,r,view==='unorganized'?'all':view)&&(!excludeOrganized||catalogView(game,r,'unorganized'))&&(!query||[...game.names,...(r.titleAliases||[])].some(name=>titleKey(name).includes(query)));});
  filtered.sort((a,b)=>a.name.localeCompare(b.name,'zh-Hant')||a.key.localeCompare(b.key));
  const pages=Math.max(1,Math.ceil(filtered.length/48));page=Math.min(page,pages);shown=filtered.slice((page-1)*48,page*48);
  $('grid').replaceChildren();$('empty').hidden=filtered.length>0;
