@@ -1,3 +1,19 @@
+# 2026-10-21：卡片快捷整理、保留白金與精簡複選篩選
+
+使用者確認整批實作：右上角快捷標記後卡片暫留當頁、切換頁碼／側欄／搜尋／篩選或重開才重算；新增資料夾旁邊的自訂分類勾選選單，可單卡複選及原地新增分類，不使用 modal／prompt。白金留左下、PS Plus 留右下，追蹤與忽略只顯示在右上快捷操作。搜尋旁新增白金／忽略／追蹤複選標籤，自訂分類用可複選下拉；所有分類採同組 OR，再與側欄、平台、搜尋及獎盃完成率 AND。
+
+app.js retainedRecords 只保存該頁被快捷編輯卡片的原篩選紀錄，實際資料立即經原 commitState 保存與雲端 changed；繪製控制／筆記／統計採現值，切換瀏覽條件即清空暫留。儲存失敗維持舊資料及舊選單勾選，未保存的新分類不採用。批次與詳細編輯仍即時重算（詳細編輯成功後清空暫留）；來源完整匯入、數位同步完成、雲端套用及示範切換也清空暫留。catalogView 增加預設 false 的 includeIgnored 選項，只有明確勾選上方忽略才開啟；來源 PS Plus 與平台條件仍必須符合。分類篩選啟用時停用排除已分類，解除後恢復原設定。
+
+browse-filters.js 只處理新精簡篩選，不重新接舊 catalog-filters.js。完成率 0–100 含邊界，單側可留空，小數可用，已知 0% 與未知 null 分開；錯誤範圍顯示提示且沒有結果。分類選項以 Set 保存在本頁記憶體，不寫 session/localStorage 或雲端。重開回到未篩選，側欄切換則保留目前平台／分類／百分比選擇。
+
+category-popover.js 共用於分類篩選及單卡資料夾，body portal 固定定位避開卡片 overflow 裁切；原生 checkbox、標籤、安全 textContent、焦點／Escape／方向鍵／點外面／頁面捲動／resize 關閉；內部清單可捲動。快捷儲存重繪後重新接到同一張卡的按鈕。新增分類在相同選單內表單提交，拒絕空白、超長或重複名稱；加入／移除保留其他分類、標籤與筆記。選單開啟時視為 cloud isEditing，避免遠端自動套用打斷輸入。小螢幕圖示 2×2，防止與批次勾選重疊。
+
+為了讓既有個人白金不因追蹤／忽略被抹掉，personal record 增加可選 boolean manualPlatinum；未提供時向下相容舊 status=已白金，personal() 讀寫／驗證、catalogRecordFor 已記錄來源合併均保留。新右上白金是可取消的獨立個人標記，追蹤／忽略仍互斥；來源白金與來源統計不被個人操作變更。詳細編輯「清除分類」清除個人白金，來源白金仍保留。備份與雲端沿原 schemaVersion 1 可選欄位傳遞，未修改任何使用者原始 JSON；其他舊開啟分頁應重新載入以免舊碼忽略新版欄位。
+
+基準 12dc8d4，已先備份程式至 outputs/backups/20261021-card-organization/before-card-organization-12dc8d4.zip。使用者私人備份僅前一輪在本機分析，未加入 repo／發布檔案。本輪只做語法、靜態 DOM／模組引用、Git 差異與部署內容檢查；未新增或執行測試，也未實機驗收私人帳號或瀏覽器互動。發布只到 chiarubi-728/PSN_Game_Catalog main。
+
+---
+
 # 2026-10-21：Horizon Zero Dawn 完整版誤顯示為美術設定集
 
 使用者截圖顯示作品卡「《Horizon Zero Dawn》美術設定集 · PS4」，兩筆數位授權皆為 HP9000-CUSA10218_00-HRZCE00000000000，已配對 PSNProfiles Horizon Zero Dawn 白金、70%。官方名稱對照包含 Complete Edition PlayStationHits 與 Horizon Zero Dawn。已查閱該 exact product 的台灣繁中與英文頁，主商品標題是 Horizon Zero Dawn: Complete Edition PlayStationHits，美術畫集是收錄內容之一。從截圖與 localizeCatalogNames 的中文來源標籤優先規則定位為顯示名稱信任問題，未直接讀取使用者原始 JSON，不宣稱已確認個別 entitlement 原標籤的上游來源。

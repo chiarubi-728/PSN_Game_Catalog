@@ -8,6 +8,8 @@ export const classificationOptions = [
   {value:'想玩',label:'追蹤',icon:'bookmark',tone:'tracked'},
 ];
 export const classificationFor = value => classificationOptions.find(option => option.value === value);
+// A personal platinum can coexist with a later tracked/ignored marker.
+export const personalPlatinum = record => record.manualPlatinum ?? (record.status==='已白金');
 export function matchesClassification(value, {view='all',filter='',customCategory=false} = {}) {
   if (filter === 'unclassified') { if (classificationFor(value)) return false; }
   else if (filter === 'exclude-ignored') { if (value === '不再遊玩') return false; }
@@ -61,7 +63,8 @@ export function personal(input) {
     if (cats.some(c => !categories.includes(c))) fail('紀錄引用了不存在的分類。');
     if(r.linkedKeys!==undefined&&(!Array.isArray(r.linkedKeys)||r.linkedKeys.length>1000||r.linkedKeys.some(key=>typeof key!=='string'||key.length>2000||!key.startsWith('platform:')&&!key.startsWith('played:'))))fail('個人整理的來源識別資訊不正確。');
     if(r.statusUpdatedAt!==undefined&&(typeof r.statusUpdatedAt!=='string'||!Number.isFinite(Date.parse(r.statusUpdatedAt))))fail('個人標記的修改時間不正確。');
-    records[id] = {status:r.status, favorite:r.favorite, rating:r.rating, note:r.note, categories:cats, tags, updatedAt:typeof r.updatedAt === 'string' ? r.updatedAt : '',...(r.platinumReview===true?{platinumReview:true}:{}),...(aliases?.length?{titleAliases:[...new Set(aliases.map(name=>name.trim()))]}:{}),...(r.linkedKeys?.length?{linkedKeys:[...new Set(r.linkedKeys)]}:{}),...(r.statusUpdatedAt?{statusUpdatedAt:r.statusUpdatedAt}:{})};
+    if(r.manualPlatinum!==undefined&&typeof r.manualPlatinum!=='boolean')fail('個人白金標記格式不正確。');
+    records[id] = {status:r.status, favorite:r.favorite, rating:r.rating, note:r.note, categories:cats, tags, updatedAt:typeof r.updatedAt === 'string' ? r.updatedAt : '',...(r.platinumReview===true?{platinumReview:true}:{}),...(r.manualPlatinum!==undefined?{manualPlatinum:r.manualPlatinum}:{}),...(aliases?.length?{titleAliases:[...new Set(aliases.map(name=>name.trim()))]}:{}),...(r.linkedKeys?.length?{linkedKeys:[...new Set(r.linkedKeys)]}:{}),...(r.statusUpdatedAt?{statusUpdatedAt:r.statusUpdatedAt}:{})};
   }
   return records;
   }

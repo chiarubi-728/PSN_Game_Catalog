@@ -30,20 +30,17 @@ details{border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin:
 .stats [data-tone] strong{color:var(--classification-color)}
 @media(max-width:700px){.classification-options{gap:6px}.status-option{gap:6px;padding:12px 5px}.classification-clear{align-items:flex-start}.classification-field{padding:10px}#views [data-classification]{gap:6px}}
 
-.quick-classifications{position:absolute;top:10px;right:10px;z-index:2;display:flex;align-items:center;gap:4px;border-radius:8px;background:#101723e8;padding:4px}
-.quick-classifications:not(:has(input:checked)){background:transparent;padding:0}
-.quick-choice{position:relative;display:block;cursor:pointer}
-.quick-choice input{position:absolute;width:1px;height:1px;padding:0;border:0;clip-path:inset(50%);overflow:hidden}
-.quick-option{display:flex;align-items:center;justify-content:center;width:30px;height:30px;border:1px solid transparent;border-radius:6px;background:#182233;color:var(--muted)}
-.quick-choice:not(:has(input:checked)){display:none}
-.art:hover .quick-choice,.quick-classifications:focus-within .quick-choice,.art:has(.card-check:focus-visible) .quick-choice{display:block}
-.art:hover .quick-classifications,.quick-classifications:focus-within,.art:has(.card-check:focus-visible) .quick-classifications{background:#101723e8;padding:4px}
-.quick-choice:hover .quick-option{border-color:#7b8ca7;background:#2c394e}
-.quick-choice input:checked+.quick-option{border-color:var(--classification-color);background:var(--classification-tint)}
-.quick-choice input:checked+.quick-option .classification-icon{color:var(--classification-color)}
-.quick-choice input:focus-visible+.quick-option{outline:2px solid var(--accent);outline-offset:2px}
-@media(hover:none),(pointer:coarse){.quick-choice:not(:has(input:checked)){display:block}.quick-classifications:not(:has(input:checked)){background:#101723e8;padding:4px}}
-@media(max-width:700px){.quick-option{width:28px;height:28px}}
+.quick-classifications{position:absolute;top:8px;right:8px;z-index:2;display:flex;align-items:center;gap:3px;border-radius:8px;background:#101723e8;padding:4px}
+.quick-option{display:flex;align-items:center;justify-content:center;width:27px;height:28px;padding:4px;border:1px solid transparent;border-radius:6px;background:#182233;color:var(--muted)}
+.quick-option .classification-icon{width:18px;height:18px}
+.quick-choice[aria-pressed="false"]{display:none}
+.art:hover .quick-choice,.quick-classifications:focus-within .quick-choice,.art:has(.card-check:focus-visible) .quick-choice{display:flex}
+.quick-option:hover{border-color:#7b8ca7;background:#2c394e}
+.quick-choice[aria-pressed="true"]{border-color:var(--classification-color);background:var(--classification-tint);color:var(--classification-color)}
+.quick-choice[aria-pressed="true"] .classification-icon{color:inherit}
+.quick-folder.has-categories,.quick-folder[aria-expanded="true"]{color:var(--accent);border-color:#6c87ac}
+@media(hover:none),(pointer:coarse){.quick-choice[aria-pressed="false"]{display:flex}}
+@media(max-width:700px){.quick-classifications{display:grid;grid-template-columns:repeat(2,27px)}.quick-folder{grid-column:2}.quick-option{width:27px;height:28px}}
 
 /* PSNProfiles comparison */
 .header-actions{flex-wrap:wrap}
@@ -117,3 +114,28 @@ main{padding-top:27px}.catalog-header header{align-items:flex-start;gap:18px}.he
 /* Classification and membership use opposite corners of the reserved footer. */
 .card>.card-classification{position:absolute;left:13px;bottom:14px;display:inline-flex;align-items:center;justify-content:center;z-index:1}.card-classification .classification-icon{width:23px;height:23px;color:var(--classification-color)}.card.has-classification .card-body{padding-bottom:48px}
 @media(max-width:700px){.card>.card-classification{left:10px;bottom:12px}.card.has-classification .card-body{padding-bottom:46px}}
+
+/* Compact, independent browsing controls and anchored category checklists. */
+.classification-filters .platform-chip{display:inline-flex;align-items:center;gap:6px}
+.classification-filters .classification-icon{width:16px;height:16px}
+.classification-filters [data-tone][aria-pressed="true"]{color:var(--classification-color);background:var(--classification-tint);border-color:var(--classification-color)}
+#custom-category-filter.has-selection{color:#e2edff;background:#263c59;border-color:#89acd9}
+.progress-filter{display:flex;flex-wrap:wrap;align-items:center;gap:7px;color:var(--muted);font-size:13px}
+.progress-filter label{display:flex;align-items:center;gap:5px}
+.progress-filter input{width:78px;padding:8px 6px;min-height:38px;font-size:13px}
+.progress-filter input[aria-invalid="true"]{border-color:#e88787}
+.filter-error{flex-basis:100%;margin:0;color:#f1a1a1;font-size:13px}
+.browse-retained{margin:12px 0 0;font-size:12px;color:#a6b8d2}
+.category-popover{position:fixed;z-index:25;display:flex;flex-direction:column;gap:10px;padding:12px;border:1px solid #566783;border-radius:10px;background:#1c2533;box-shadow:0 12px 36px #0009;overflow:auto}
+.popover-heading{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:13px;flex:none}
+.popover-heading button{padding:3px 6px;border:0;background:transparent;color:var(--muted)}
+.popover-categories{overflow:auto;min-height:0;max-height:260px;flex:1 1 auto}
+.popover-category{display:flex;align-items:center;gap:10px;padding:10px 8px;border-radius:6px;font-size:14px;cursor:pointer;overflow-wrap:anywhere}
+.popover-category:hover,.popover-category:focus-within{background:#2b3a50}
+.popover-category input{accent-color:#aac7ff;width:17px;height:17px;padding:0;flex:none}
+.popover-category span{min-width:0}
+.popover-empty{margin:8px;color:var(--muted);font-size:13px}
+.popover-create{display:flex;flex-wrap:wrap;gap:7px;padding-top:10px;border-top:1px solid #3b495d;flex:none}
+.popover-create input{width:100%;min-width:0;font-size:13px}
+.popover-create button{margin-left:auto;font-size:13px;padding:7px 10px}
+@media(max-width:700px){.catalog-tools .classification-filters,.progress-filter{flex-basis:100%}.progress-filter{gap:6px}.progress-filter .platform-filter-label{flex-basis:100%}}

@@ -1,4 +1,4 @@
-import {blankRecord,workRecordFor,platformWorkKey} from './model.js';
+import {blankRecord,workRecordFor,platformWorkKey,personalPlatinum} from './model.js';
 
 const platformKey=entry=>entry.platforms.join('/');
 export const historyRecordKey=entry=>'played:'+entry.provider+':'+entry.id+':'+encodeURIComponent(platformKey(entry));
@@ -46,6 +46,7 @@ export function catalogRecordFor(personal,work){
   const marker=markers.find(row=>row.record.status==='不再遊玩')?.record||markers[0]?.record;
   const union=field=>[...new Set(records.flatMap(record=>record[field]||[]))];
   const merged={...base,status:marker?.status||'未開始',note:records.find(record=>record.note)?.note||'',categories:union('categories'),tags:union('tags'),titleAliases:union('titleAliases'),linkedKeys:keys};
+  if(records.some(record=>record.manualPlatinum!==undefined||record.status==='已白金'))merged.manualPlatinum=records.some(personalPlatinum);
   if(marker?.statusUpdatedAt)merged.statusUpdatedAt=marker.statusUpdatedAt;else delete merged.statusUpdatedAt;
   if(merged.status!=='未開始')delete merged.platinumReview;
   return merged;

@@ -1,4 +1,4 @@
-import {platformGames,workRecordFor} from './model.js';
+import {platformGames,workRecordFor,personalPlatinum} from './model.js';
 import {gameTitleId} from './sony-platinums.js';
 import {titleMatch} from './title-aliases.js';
 import {officialNamesFor} from './store-names.js';
@@ -47,18 +47,18 @@ export function unifiedCatalog(library,personal,history,storeNames){
   }),storeNames);
 }
 export const catalogPlatinum=work=>work.platinum===true;
-export function catalogView(work,record,view){
-  // Ignored games are visible only in their dedicated view, even if platinum.
-  if(record.status==='不再遊玩')return view==='ignored';
+export function catalogView(work,record,view,{includeIgnored=false}={}){
+  // Other views expose ignored games only when explicitly requested by filter.
+  if(record.status==='不再遊玩'&&(view==='ignored'||!includeIgnored))return view==='ignored';
   if(view==='ignored')return false;
   if(view==='ps-plus')return work.digitalMembers.some(member=>member.membership==='PS_PLUS');
   if(view==='non-ps-plus')return work.digitalMembers.some(member=>member.membership==='NONE');
-  if(view==='unorganized')return !catalogPlatinum(work)&&record.status==='未開始'&&record.categories.length===0;
+  if(view==='unorganized')return !catalogPlatinum(work)&&!personalPlatinum(record)&&record.status==='未開始'&&record.categories.length===0;
   if(view==='digital')return work.digitalOwned;
   if(view==='played')return work.played;
   if(view==='unfinished')return work.played&&!catalogPlatinum(work,record);
   if(view==='history-only')return work.played&&!work.digitalOwned;
-  if(view==='platinum')return catalogPlatinum(work)||record.status==='已白金';
+  if(view==='platinum')return catalogPlatinum(work)||personalPlatinum(record);
   if(view==='missing')return work.missingCount>0;
   if(view==='tracked')return record.status==='想玩';
   return true;
