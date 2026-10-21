@@ -14,7 +14,7 @@ async function fingerprint(value){
   const bytes=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(canonical(value)));
   return [...new Uint8Array(bytes)].map(byte=>byte.toString(16).padStart(2,'0')).join('');
 }
-function hasData(value){return value.library.games.length||Object.keys(value.history.sources).length||value.personal.categories.length||Object.keys(value.personal.records).length||Object.keys(value.personal.works).length||Object.keys(value.storeNames.records).length;}
+function hasData(value){return value.library.account||value.library.games.length||Object.keys(value.history.sources).length||value.personal.categories.length||Object.keys(value.personal.records).length||Object.keys(value.personal.works).length||Object.keys(value.storeNames.records).length;}
 function describe(value){return value.library.games.length+' 筆數位授權、'+Object.values(value.history.sources).reduce((sum,source)=>sum+source.games.length,0)+' 筆遊玩紀錄、'+value.personal.categories.length+' 個自訂分類';}
 
 export function initCloudSync({getSnapshot,applySnapshot,isBlocked,isDemo,isEditing,notice}){
@@ -31,7 +31,7 @@ export function initCloudSync({getSnapshot,applySnapshot,isBlocked,isDemo,isEdit
     let text=message||texts[phase];
     if(phase==='synced'&&lastSync)text+=' · '+new Date(lastSync).toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'});
     if(isDemo())text='示範模式 · 雲端同步暫停';
-    if(isBlocked())text='同步已暫停 · 請先匯出備份並重新整理';
+    if(isBlocked())text='同步已暫停 · 請先處理資料保存提示';
     $('cloud-summary').textContent=text;$('cloud-summary').dataset.state=isBlocked()?'blocked':phase;
     $('cloud-state').textContent=(account?'Google：'+account.email+'\n':'')+text;
     $('cloud-connect').textContent=preparing?'準備 Google 授權…':connected?'已登入 Google':connectedOnce?'重新登入 Google':'使用 Google 登入';

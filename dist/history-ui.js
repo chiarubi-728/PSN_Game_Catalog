@@ -1,9 +1,10 @@
 import {historyProfile,historySnapshot,mergeHistory,readHistory} from './history.js';
+import {assertCatalogAccount} from './model.js';
 export function initHistorySync({getState,setHistory,save,render,notice,isDemo,isBlocked}){
   const $=id=>document.getElementById(id),dialog=$('history-dialog');
   let pending=null,bridge=null,timer;
   const say=text=>{$('history-status').textContent=text;bridge?.onStatus?.(text);};
-  function writable(){if(isDemo())throw Error('請先離開示範模式。');if(isBlocked())throw Error('另一分頁已有新資料，請先重新整理。');}
+  function writable(){if(isDemo())throw Error('請先離開示範模式。');if(isBlocked())throw Error('請先處理資料保存提示。');if(getState().library.games.length&&!getState().library.account)throw Error('原有數位庫尚未確認帳號，請先按「同步遊戲庫」完成帳號設定。');}
   function summary(){
     const history=getState().history,sources=Object.values(history?.sources||{});
     $('history-summary').textContent=sources.length?sources.map(source=>`${source.provider==='psnprofiles'?'PSNProfiles':'Sony'}：${source.games.length} 筆，白金 ${source.games.filter(game=>game.platinum).length}、尚未白金 ${source.games.filter(game=>!game.platinum).length}${source.coverage==='platinum'?'（舊白金資料，尚非完整遊玩清單）':''}，${new Date(source.updatedAt).toLocaleString('zh-TW')}`).join('\n'):'尚未同步遊玩紀錄。原本的數位遊戲庫會保留。';
@@ -17,11 +18,11 @@ export function initHistorySync({getState,setHistory,save,render,notice,isDemo,i
     writable();const previous=getState().history,next=mergeHistory(previous,snapshot);setHistory(next);
     if(!save()){setHistory(previous);throw Error('儲存失敗，遊玩紀錄未寫入。');}
     render();summary();
-    const text=`已匯入 ${snapshot.games.length} 筆${snapshot.provider==='psnprofiles'?' PSNProfiles':' Sony'}遊玩紀錄，包含 ${snapshot.games.filter(game=>game.platinum).length} 筆白金。所有紀錄已加入主清單。${snapshot.coverage==='platinum'?'這份是舊白金資料；請使用 v0.3.1 整合腳本同步完整清單。':''}`;
+    const text=`已匯入 ${snapshot.games.length} 筆${snapshot.provider==='psnprofiles'?' PSNProfiles':' Sony'}遊玩紀錄，包含 ${snapshot.games.filter(game=>game.platinum).length} 筆白金。所有紀錄已加入主清單。${snapshot.coverage==='platinum'?'這份是舊白金資料；請使用 v0.3.2 整合腳本同步完整清單。':''}`;
     say(text);notice(text);pending=null;$('history-account-confirm').hidden=true;
   }
   function receive(raw,expected){
-    writable();const snapshot=historySnapshot(raw,expected);
+    writable();const snapshot=historySnapshot(raw,expected);assertCatalogAccount(getState(),snapshot.profile);
     if(raw.kind?.startsWith('ps-game-base-sony-')&&raw.profile?.verified!==true){pending=snapshot;$('history-account-confirm').hidden=false;$('history-account-confirm').textContent=`確認這份 Sony 資料來自 ${snapshot.profile}，匯入遊玩紀錄`;say('Sony 未提供可驗證帳號，請確認資料帳號後匯入。');return false;}
     commit(snapshot);return true;
   }
@@ -31,6 +32,7 @@ export function initHistorySync({getState,setHistory,save,render,notice,isDemo,i
     try{
       writable();if(bridge)throw Error('正在等待來源分頁，請先完成同步或停止等待。');
       const profile=historyProfile(requestedProfile||$('history-profile').value),session=crypto.randomUUID(),url=new URL('https://psnprofiles.com/'+profile);
+      assertCatalogAccount(getState(),profile);
       if(getState().history?.profile&&getState().history.profile.toLowerCase()!==profile.toLowerCase())throw Error('目前遊玩紀錄屬於不同帳號，請確認帳號後再同步。');
       url.hash=new URLSearchParams({psgbOrigin:location.origin,psgbSession:session,psgbHistory:'1'}).toString();
       const child=existingChild&&!existingChild.closed?existingChild:window.open(url.href,'_blank');if(!child)throw Error('請允許開啟同步分頁。');
@@ -64,7 +66,7 @@ export function initHistorySync({getState,setHistory,save,render,notice,isDemo,i
       writable();const file=$('history-file').files[0];if(!file)return;if(file.size>15*1024*1024)throw Error('遊玩紀錄 JSON 上限 15 MB。');
       const raw=JSON.parse(await file.text());
       if(raw.kind==='ps-game-base-history'){
-        const imported=readHistory(raw);for(const snapshot of Object.values(imported.sources))historySnapshot(snapshot,historyProfile($('history-profile').value));
+        const imported=readHistory(raw);assertCatalogAccount(getState(),imported.profile);for(const snapshot of Object.values(imported.sources))historySnapshot(snapshot,historyProfile($('history-profile').value));
         // Commit the container once, so a failure cannot leave a half import.
         const previous=getState().history;let next=previous;for(const snapshot of Object.values(imported.sources))next=mergeHistory(next,snapshot);
         setHistory(next);if(!save()){setHistory(previous);throw Error('儲存失敗，遊玩紀錄未寫入。');}render();summary();say('已匯入全部遊玩來源，紀錄已加入主清單。');

@@ -1,8 +1,24 @@
 import {historyProfile} from './history.js';
+import {assertCatalogAccount} from './model.js';
 
-export function initUnifiedSync({historySync,getState,saveLibrary,syncNames,cancelNames,isDemo,isBlocked,notice}){
+export function initUnifiedSync({historySync,getState,saveLibrary,confirmAccount,syncNames,cancelNames,isDemo,isBlocked,notice}){
   const $=id=>document.getElementById(id),dialog=$('sync-dialog');
-  let active=null,lastMode='all';
+  let active=null,lastMode='all',setupMode='all';
+  function setup(mode){
+    setupMode=mode;const state=getState(),locked=!!(state.history.profile||state.library.games.length&&state.library.account),profile=locked?(state.history.profile||state.library.account.profile):$('sync-profile').value.trim()||state.library.account?.profile||'';
+    $('account-setup-profile').value=profile;$('account-setup-profile').readOnly=locked;
+    $('account-legacy-ack').hidden=!state.library.games.length||!!state.library.account;$('account-legacy-check').checked=false;$('account-setup-error').textContent='';
+    if(!$('account-setup').open)$('account-setup').showModal();
+  }
+  $('account-setup-form').onsubmit=event=>{
+    event.preventDefault();try{
+      if(isBlocked())throw Error('請先處理資料保存提示。');
+      const profile=historyProfile($('account-setup-profile').value);if(getState().library.games.length||getState().history.profile)assertCatalogAccount(getState(),profile);
+      if(!$('account-legacy-ack').hidden&&!$('account-legacy-check').checked)throw Error('請先確認原有數位遊戲庫所屬的 PSN 帳號。');
+      if(!confirmAccount(profile)){ $('account-setup-error').textContent='帳號尚未保存，請保留內容並處理資料保存提示後重試。';return;}
+      $('sync-profile').value=$('history-profile').value=profile;$('account-setup').close();start(setupMode);
+    }catch(error){$('account-setup-error').textContent=error.message;}
+  };
   function say(text){$('sync-status').textContent=text;$('sync-state').textContent=text;}
   function step(id,state){const node=$('sync-step-'+id);node.dataset.state=state;node.querySelector('span').textContent={waiting:'待處理',running:'進行中',done:'完成',error:'未完成',skipped:'此次略過'}[state];}
   function show(){if(!dialog.open)dialog.showModal();}
@@ -34,10 +50,12 @@ export function initUnifiedSync({historySync,getState,saveLibrary,syncNames,canc
   function start(mode='all'){
     if(active){show();return;}
     if(isDemo())return notice('請先離開示範模式，再同步個人遊戲庫。');
-    if(isBlocked())return notice('另一分頁已有新資料，請先重新整理。');
+    if(isBlocked())return notice('請先處理資料保存提示，再開始同步。');
     if(historySync.busy)return notice('已有來源同步正在進行，請先完成或停止等待。');
     let profile;
-    try{profile=historyProfile($('sync-profile').value);if(getState().history?.profile&&getState().history.profile.toLowerCase()!==profile.toLowerCase())throw Error('帳號與已保存的遊玩紀錄不同，請在資料管理確認帳號。');}catch(error){notice(error.message);return;}
+    const state=getState(),requested=$('sync-profile').value.trim();
+    if(!state.library.account||!requested||!state.library.games.length&&!state.history.profile&&requested.toLowerCase()!==state.library.account.profile.toLowerCase()){setup(mode);return;}
+    try{profile=historyProfile($('sync-profile').value);assertCatalogAccount(getState(),profile);}catch(error){notice(error.message);return;}
     const run={mode,profile,child:null,session:crypto.randomUUID(),stage:mode==='names'?'names':mode==='history'?'history':'digital',digitalSaved:false};active=run;lastMode=mode;
     $('sync-retry').hidden=true;$('sync-cancel').hidden=false;$('sync-all').disabled=true;$('sync-all').textContent='同步中…';
     for(const id of ['fetch','history-fetch','sync-history-only','sync-profile'])$(id).disabled=true;
@@ -45,10 +63,10 @@ export function initUnifiedSync({historySync,getState,saveLibrary,syncNames,canc
     if(mode==='names')void names(run);
     else if(mode==='history')history(run);
     else{
-      const url=new URL('https://library.playstation.com/recently-purchased');url.hash=new URLSearchParams({psgbOrigin:location.origin,psgbSession:run.session}).toString();
+      const url=new URL('https://library.playstation.com/recently-purchased');url.hash=new URLSearchParams({psgbOrigin:location.origin,psgbSession:run.session,psgbProfile:profile}).toString();
       run.child=window.open(url.href,'_blank');
       if(!run.child){fail(run,Error('同步分頁被瀏覽器封鎖，請允許彈出視窗後重試。'));return;}
-      say('1 / 3 · 請在來源分頁登入 PlayStation 並切到「已購買」。完成後會自動繼續讀取遊玩與獎盃紀錄。');
+      say('1 / 3 · 請在來源分頁登入 PlayStation、切到「已購買」，並確認登入帳號為 '+profile+'。');
       run.timer=setTimeout(()=>fail(run,Error('等候數位遊戲庫逾時。請確認整合腳本已安裝，並在官方分頁切到「已購買」，再重試。')),300000);
     }
     if(active===run&&mode!=='names')run.watcher=setInterval(()=>{if(run.child?.closed)fail(run,Error('來源分頁已關閉，可按「重試未完成步驟」。'));},1500);
@@ -61,7 +79,7 @@ export function initUnifiedSync({historySync,getState,saveLibrary,syncNames,canc
     if(message.type==='PSGB_ERROR')fail(run,Error(String(message.message||'數位遊戲庫讀取失敗。').slice(0,500)));
     if(message.type==='PSGB_RESULT'){
       try{
-        const count=saveLibrary(message.payload);clearTimeout(run.timer);run.digitalSaved=true;run.digitalCount=count;step('digital','done');
+        const count=saveLibrary(message.payload,run.profile);clearTimeout(run.timer);run.digitalSaved=true;run.digitalCount=count;step('digital','done');
         if(run.mode==='digital')finish(run,'數位遊戲庫已更新：'+count+' 筆授權。');else history(run);
       }catch(error){fail(run,error);}
     }
@@ -69,6 +87,6 @@ export function initUnifiedSync({historySync,getState,saveLibrary,syncNames,canc
   $('sync-all').onclick=()=>start();$('fetch').onclick=()=>start('digital');$('sync-history-only').onclick=()=>start('history');
   $('sync-retry').onclick=()=>start(lastMode);
   $('sync-cancel').onclick=()=>{if(active)fail(active,Error('已停止等待，已保存的資料保留。'));};
-  $('sync-profile').value=getState().history?.profile||$('history-profile').value||'chiarubi';
-  return {get busy(){return !!active;},refresh(){if(!active&&getState().history?.profile)$('sync-profile').value=getState().history.profile;}};
+  $('sync-profile').value=getState().library.account?.profile||getState().history.profile||'';
+  return {get busy(){return !!active;},refresh(){const profile=getState().library.account?.profile||getState().history.profile;if(!active&&profile)$('sync-profile').value=profile;}};
 }

@@ -1,4 +1,4 @@
-import {readHistory,historySnapshot,mergeHistory,emptyHistory} from './history.js';
+import {readHistory,historySnapshot,mergeHistory,emptyHistory,historyProfile} from './history.js';
 import {readStoreNames} from './store-names.js';
 export const statuses = ['未開始', '想玩', '遊玩中', '已破關', '已白金', '暫停', '不再遊玩'];
 // Keep existing stored codes; only these three are offered for new choices.
@@ -33,7 +33,17 @@ export function library(input) {
     if (typeof g.imageUrl === 'string') { try { const u = new URL(g.imageUrl); if (u.protocol === 'https:') out.imageUrl = u.href; } catch {} }
     return out;
   });
-  return {schemaVersion:1, scope:'active-ps4-ps5-digital-entitlements', complete:input.complete, syncedAt:typeof input.syncedAt === 'string' ? input.syncedAt : null, games};
+  let account;
+  if(input.account!==undefined){
+    if(!object(input.account)||input.account.method!=='user'||typeof input.account.confirmedAt!=='string'||!Number.isFinite(Date.parse(input.account.confirmedAt)))fail('數位遊戲庫的帳號確認資訊不正確。');
+    account={profile:historyProfile(input.account.profile),method:'user',confirmedAt:new Date(input.account.confirmedAt).toISOString()};
+  }
+  return {schemaVersion:1, scope:'active-ps4-ps5-digital-entitlements', complete:input.complete, syncedAt:typeof input.syncedAt === 'string' ? input.syncedAt : null, games,...(account?{account}:{})};
+}
+export function assertCatalogAccount(data,expectedProfile){
+  const profiles=[data.library?.account?.profile,data.history?.profile,expectedProfile].filter(Boolean).map(historyProfile);
+  if(new Set(profiles.map(value=>value.toLowerCase())).size>1)fail('數位遊戲庫與遊玩紀錄的 PSN 帳號不同，已停止合併。請先匯出備份，使用對應帳號的遊戲庫。');
+  return data;
 }
 export function emptyPersonal() { return {schemaVersion:1, kind:'ps-game-base-personal', categories:[], records:{}, works:{}}; }
 function strings(v) { if (!Array.isArray(v) || v.some(x => typeof x !== 'string' || !x.trim() || x.length > 100)) fail('分類或標籤格式不正確（每項 1–100 字）。'); return [...new Set(v)]; }
@@ -49,7 +59,9 @@ export function personal(input) {
     const aliases=r.titleAliases;
     if(aliases!==undefined&&(!Array.isArray(aliases)||aliases.length>50||aliases.some(name=>typeof name!=='string'||!name.trim()||name.length>500)))fail('白金配對名稱格式不正確（最多 50 個，每個 1–500 字）。');
     if (cats.some(c => !categories.includes(c))) fail('紀錄引用了不存在的分類。');
-    records[id] = {status:r.status, favorite:r.favorite, rating:r.rating, note:r.note, categories:cats, tags, updatedAt:typeof r.updatedAt === 'string' ? r.updatedAt : '',...(r.platinumReview===true?{platinumReview:true}:{}),...(aliases?.length?{titleAliases:[...new Set(aliases.map(name=>name.trim()))]}:{})};
+    if(r.linkedKeys!==undefined&&(!Array.isArray(r.linkedKeys)||r.linkedKeys.length>1000||r.linkedKeys.some(key=>typeof key!=='string'||key.length>2000||!key.startsWith('platform:')&&!key.startsWith('played:'))))fail('個人整理的來源識別資訊不正確。');
+    if(r.statusUpdatedAt!==undefined&&(typeof r.statusUpdatedAt!=='string'||!Number.isFinite(Date.parse(r.statusUpdatedAt))))fail('個人標記的修改時間不正確。');
+    records[id] = {status:r.status, favorite:r.favorite, rating:r.rating, note:r.note, categories:cats, tags, updatedAt:typeof r.updatedAt === 'string' ? r.updatedAt : '',...(r.platinumReview===true?{platinumReview:true}:{}),...(aliases?.length?{titleAliases:[...new Set(aliases.map(name=>name.trim()))]}:{}),...(r.linkedKeys?.length?{linkedKeys:[...new Set(r.linkedKeys)]}:{}),...(r.statusUpdatedAt?{statusUpdatedAt:r.statusUpdatedAt}:{})};
   }
   return records;
   }
@@ -162,7 +174,8 @@ export function mergeLibrary(previous, incoming) {
   const current = new Set(next.games.map(g => g.entitlementId));
   const missingIds = next.complete ? old.filter(g => !current.has(g.entitlementId)).map(g => g.entitlementId) : (previous?.missingIds || []).filter(id => !current.has(id));
   for (const g of next.games) byId.set(g.entitlementId,g);
-  return {...next, games:[...byId.values()], missingIds, added};
+  if(previous?.account&&next.account&&previous.account.profile.toLowerCase()!==next.account.profile.toLowerCase())fail('兩份數位遊戲庫屬於不同 PSN 帳號，已停止合併。');
+  return {...next, games:[...byId.values()], missingIds, added,...(next.account||previous?.account?{account:next.account||previous.account}:{})};
 }
 export function parseImport(input) {
   if(input?.kind==='ps-game-base-store-names')return {storeNames:readStoreNames(input)};
@@ -171,7 +184,7 @@ export function parseImport(input) {
     if(input.kind.startsWith('ps-game-base-sony-')&&input.profile?.verified!==true)throw Error('請從同步遊玩紀錄視窗匯入這份 Sony 資料，先確認帳號。');
     return {history:mergeHistory(emptyHistory(),historySnapshot(input))};
   }
-  if (input?.kind === 'ps-game-base-backup' && input.schemaVersion === 1) return {library:library(input.library),personal:personal(input.personal),history:readHistory(input.history),storeNames:readStoreNames(input.storeNames), missingIds:Array.isArray(input.missingIds) ? input.missingIds.filter(x => typeof x === 'string') : []};
+  if (input?.kind === 'ps-game-base-backup' && input.schemaVersion === 1) return assertCatalogAccount({library:library(input.library),personal:personal(input.personal),history:readHistory(input.history),storeNames:readStoreNames(input.storeNames), missingIds:Array.isArray(input.missingIds) ? input.missingIds.filter(x => typeof x === 'string') : []});
   if (input?.kind === 'ps-game-base-personal') return {personal:personal(input)};
   return {library:library(input)};
 }

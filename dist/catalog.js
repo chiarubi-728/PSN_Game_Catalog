@@ -3,8 +3,9 @@ import {gameTitleId} from './sony-platinums.js';
 import {titleMatch} from './title-aliases.js';
 import {officialNamesFor} from './store-names.js';
 import {localizeCatalogNames} from './catalog-display-names.js';
+import {historyRecordKey as historyKey} from './catalog-personal.js';
+export {catalogRecordFor,catalogRecordNotes} from './catalog-personal.js';
 const platformKey=game=>game.platforms.join('/');
-const historyKey=entry=>'played:'+entry.provider+':'+entry.id+':'+encodeURIComponent(platformKey(entry));
 export {historyKey as historyRecordKey};
 const regionFor=g=>({UP:'NA',EP:'EU',JP:'JP',HP:'AS'})[/^([A-Z]{2})\d/.exec(g.productId||'')?.[1]];
 function recordMembers(work){return [...work.members,...(work.officialNames||[]).map(name=>({name})),...work.historyEntries.map(entry=>({name:entry.name}))];}
@@ -44,12 +45,6 @@ export function unifiedCatalog(library,personal,history,storeNames){
     return {...card,sourceOrder:ranks.length?Math.min(...ranks):null,progress:preferred?.progress??null,earnedTotal:preferred?.earnedTotal??null,definedTotal:preferred?.definedTotal??null,names:[...new Set([...card.members.map(g=>g.name),...(card.officialNames||[]),...card.historyEntries.map(g=>g.name)])],sources:[...(card.digitalMembers.length?['digital']:[]),...new Set(card.historyEntries.map(g=>g.provider))]};
   }),storeNames);
 }
-export function catalogRecordFor(personal,work){
-  if(!work)return {status:'未開始',favorite:false,rating:0,note:'',categories:[],tags:[],updatedAt:''};
-  if(Object.hasOwn(personal.works,work.key))return personal.works[work.key];
-  const inherited=workRecordFor(personal,work),old=(work.historyEntries||[]).map(entry=>personal.works[historyKey(entry)]).filter(Boolean);
-  return [inherited,...old].sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt))[0];
-}
 export const catalogPlatinum=work=>work.platinum===true;
 export function catalogView(work,record,view){
   // Ignored games are visible only in their dedicated view, even if platinum.
@@ -62,7 +57,7 @@ export function catalogView(work,record,view){
   if(view==='played')return work.played;
   if(view==='unfinished')return work.played&&!catalogPlatinum(work,record);
   if(view==='history-only')return work.played&&!work.digitalOwned;
-  if(view==='platinum')return catalogPlatinum(work,record);
+  if(view==='platinum')return catalogPlatinum(work)||record.status==='已白金';
   if(view==='missing')return work.missingCount>0;
   if(view==='tracked')return record.status==='想玩';
   return true;

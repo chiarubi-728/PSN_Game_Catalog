@@ -4,7 +4,7 @@ export function initStoreNames({getState,setNames,save,render,isBlocked,isDemo})
   const $=id=>document.getElementById(id),button=$('names-sync'),stop=$('names-stop'),status=$('names-status');
   let job=null,controller=null,autoSignature='',available=false;
   function summary(){const count=Object.keys(getState().storeNames?.records||{}).length;status.textContent=count?'已保存 '+count+' 個官方名稱對照，會依平台自動合併中英文遊戲。':'同步時會由整合腳本自動補齊 Sony 官方中英文名稱。';}
-  function writable(){if(isDemo())throw Error('請先離開示範模式。');if(isBlocked())throw Error('另一分頁已有資料，請先重新整理。');}
+  function writable(){if(isDemo())throw Error('請先離開示範模式。');if(isBlocked())throw Error('請先處理資料保存提示，再補齊名稱。');}
   async function run({retryFailed=false,onStatus}={}){
     let done=0,resolved=0,failed=0;
     const say=text=>{status.textContent=text;onStatus?.(text);};
@@ -12,7 +12,7 @@ export function initStoreNames({getState,setNames,save,render,isBlocked,isDemo})
       writable();const products=storeNameRequests(getState().library,getState().storeNames,{retryFailed});
       if(!products.length){summary();return {complete:true,resolved:0,failed:0};}
       controller=new AbortController();button.disabled=true;stop.hidden=false;
-      const ready=await pingScript({signal:controller.signal});if(!ready?.onlineNames)throw Error('請先更新整合腳本至 v0.3.1，再重新整理此網站。');available=true;
+      const ready=await pingScript({signal:controller.signal});if(!ready?.onlineNames)throw Error('請先更新整合腳本至 v0.3.2，再重新整理此網站。');available=true;
       for(let offset=0;offset<products.length;offset+=4){
         writable();if(controller.signal.aborted)throw Error('已停止名稱查詢。');
         say('正在補齊官方名稱：'+done+' / '+products.length+'，已取得 '+resolved+'，暫無資料 '+failed+'。');
