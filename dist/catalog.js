@@ -2,6 +2,7 @@ import {platformGames,workRecordFor} from './model.js';
 import {gameTitleId} from './sony-platinums.js';
 import {titleMatch} from './title-aliases.js';
 import {officialNamesFor} from './store-names.js';
+import {localizeCatalogNames} from './catalog-display-names.js';
 const platformKey=game=>game.platforms.join('/');
 const historyKey=entry=>'played:'+entry.provider+':'+entry.id+':'+encodeURIComponent(platformKey(entry));
 export {historyKey as historyRecordKey};
@@ -36,12 +37,12 @@ export function unifiedCatalog(library,personal,history,storeNames){
   }
   const sourceRanks=new Map();
   for(const provider of ['psnprofiles','sony'])for(const [index,game] of (history?.sources?.[provider]?.games||[]).entries())sourceRanks.set(provider+':'+game.id,index+(provider==='sony'?100000:0));
-  return cards.map(card=>{
+  return localizeCatalogNames(cards.map(card=>{
     // Sony is the primary progress source when both providers report a set.
     const preferred=card.historyEntries.find(entry=>entry.provider==='sony'&&entry.progress!==null)||card.historyEntries.find(entry=>entry.progress!==null)||card.historyEntries[0];
     const ranks=card.historyEntries.map(entry=>sourceRanks.get(entry.provider+':'+entry.id)).filter(Number.isFinite);
     return {...card,sourceOrder:ranks.length?Math.min(...ranks):null,progress:preferred?.progress??null,earnedTotal:preferred?.earnedTotal??null,definedTotal:preferred?.definedTotal??null,names:[...new Set([...card.members.map(g=>g.name),...(card.officialNames||[]),...card.historyEntries.map(g=>g.name)])],sources:[...(card.digitalMembers.length?['digital']:[]),...new Set(card.historyEntries.map(g=>g.provider))]};
-  });
+  }),storeNames);
 }
 export function catalogRecordFor(personal,work){
   if(!work)return {status:'未開始',favorite:false,rating:0,note:'',categories:[],tags:[],updatedAt:''};

@@ -1,3 +1,11 @@
+# 2026-10-21：跨平台統一顯示已確認的中文名稱
+
+使用者以 PS5 PSNProfiles「Destiny 2」及 PS4 數位庫「天命2」為例，要求不同平台名稱一致。新增 catalog-display-names.js，在 unifiedCatalog 完成來源配對後才計算顯示名稱；以已核實的名稱組及數位商品原名搭配官方 product／invariant 名稱建立精確別名索引。優先採既有中文原名；多個不同中文候選時不猜測。保留版本副標題，不使用 concept 名稱建立跨版本別名，不改動來源配對、卡片 key、存檔或來源資料。title-aliases.js 新增獨立的 verifiedDisplayTitleGroups，天命2依 PlayStation 台灣官方頁確認，未更動用於來源配對的 verifiedTitleGroups。
+
+顯示卡片的 name 與搜尋 names 納入統一名稱及別名，因此標題、排序、編輯標題與中英文搜尋一致；PS4／PS5 授權、分類、筆記與進度仍各自保存。未新增商品請求或更改整合腳本。基準 HEAD 8d8c886，更新前程式碼備份於 outputs/backups/20261021-display-names/before-display-names-8d8c886.zip。僅語法、來源、Git 差異與部署 HTTP 檢查，未新增或執行測試，未讀取使用者私人遊戲庫。
+
+---
+
 # 2026-10-21：忽略只顯示於忽略清單
 
 使用者要求標記忽略的遊戲不能出現在任何其他分類。catalogView 統一先判斷個人狀態「不再遊玩」，僅允許 ignored 清單；此判斷優先於來源白金、PS Plus 等條件。app.js 的自訂分類亦排除忽略；從忽略切自訂分類會先回到 all 基底，避免留下互斥條件。其他清單中標記忽略後立即隱藏並移除該卡片勾選，防止後續批次動作改動已隱藏項目。搜尋沿用清單結果。原始資料、既有分類關係及真實來源獎盃統計保留，未遷移或刪除存檔；解除忽略後恢復依條件顯示。

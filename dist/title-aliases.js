@@ -7,6 +7,11 @@ export const verifiedTitleGroups = [{
     'https://store.playstation.com/zh-hant-tw/product/UP0006-PPSA02342_00-ITTAKESTWORETAIL',
   ],
 }];
+// Display aliases may cross platforms without joining their source records.
+export const verifiedDisplayTitleGroups=[...verifiedTitleGroups,{
+  names:['Destiny 2','天命2'],
+  sources:['https://www.playstation.com/zh-hant-tw/games/destiny-2/'],
+}];
 export function titleKey(name) {
   return name.replace(/[™®]/g,'').normalize('NFKC').replace(/[‘’]/g,"'").replace(/[‐‑–—]/g,'-').replace(/\s+/g,' ').trim().toLowerCase();
 }
