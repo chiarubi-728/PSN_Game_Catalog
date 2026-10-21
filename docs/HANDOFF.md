@@ -1,3 +1,11 @@
+# 2026-10-21：PS Plus 圖示固定於卡片右下角
+
+使用者指出 Plus 圖示隨文字長度出現不同高度，要求固定卡片右下角。app.js 將圖示從 card-markers 移至 article.card 直接子元素，並加 has-ps-plus；card 設 relative、badge 設 absolute right/bottom，卡片底部有圖示時預留 48px（手機 46px），避免與文字／進度重疊。沒有分類就不插入 card-markers 空列。歷史授權樣式、提示與 aria-label 沿用，不改來源判斷或資料。
+
+基準 18ccda7，程式備份 outputs/backups/20261021-plus-corner/before-plus-corner-18ccda7.zip。此版包含上一版平台標籤、較大字體、白金兩字與綠色追蹤。只做語法、靜態引用／Git 差異與部署檢查，未新增或執行測試或實機畫面驗收。發布到自己的 repo，刷新網站即可。
+
+---
+
 # 2026-10-21：平台標籤、文字放大與綠色追蹤
 
 使用者要求文字稍大，新增類似上游的 PS5／PS4 標籤，來源白金改為「白金」，追蹤黃色改綠色。index/app 新增搜尋旁 platform-filters 原生 toggle buttons，aria-pressed 隨記憶體 Set 更新；同組任一平台符合，未選不限（包含 PS3／PS Vita 等既有來源紀錄）。搭配現有 view/category/search/exclusion；切換或清除平台時取消勾選、回第一頁，render 與 batch eligible 保護沿用。不存入 localStorage 或備份，全庫統計保持全庫，跨側欄保留當頁平台選擇。空結果提示可清除平台。
