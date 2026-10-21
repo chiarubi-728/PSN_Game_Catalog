@@ -1,3 +1,13 @@
+# 2026-10-21：卡片只顯示已有分類，移除預設狀態與來源文字
+
+使用者圈出卡片的「數位擁有／未分類／尚無遊玩紀錄／Sony 數位庫」與「Sony 數位庫 · PSNProfiles」來源列，要求隱藏，有分類再顯示。app.js 卡片移除 ownership-label、source-label 及預設狀態文案；僅有 classificationFor 的個人標記或來源白金時建立 pill，個人忽略／追蹤優先於來源白金，無個人標記才顯示來源白金。個人白金標記仍與來源白金分別標示。自訂分類／標籤沿用既有輸出，獎盃數字與進度保留。
+
+PS Plus 金色圖示保留，與已存在的分類共用 card-markers 列；沒有 pill 或 Plus 就不插入該列。只剩 Plus 時靠右，保留歷史授權提示與無障礙文字。詳細視窗仍有各筆授權／來源與遊玩資料。未改分類規則、來源資料、存檔、統計、名稱配對、同步或 userscript。
+
+基準 4b389fb，程式備份 outputs/backups/20261021-clean-card-labels/before-clean-card-labels-4b389fb.zip。僅語法、靜態來源／引用及 Git 差異、部署檢查，未新增或執行測試，未進行瀏覽器或私人資料驗收。發布到自己的 repo，刷新網站即可取得新版。
+
+---
+
 # 2026-10-21：首頁緊湊摘要與 PS Plus 金色圖示
 
 使用者提供上游最新首頁及 repo，偏好其較簡潔的標題／統計與金色 PS Plus 小圖案。已閱讀 https://github.com/promise82114/ps-game-base 與 raw main 的 index/style/icons/app 作視覺參考（下載於工作區 work/reference-ui-20261021，未加入自己的 repo）。只調整自己的首頁顯示，沒有合併上游整個分支、恢復已移除篩選或引入上游分類／同步／分組規則。使用者原有 PS4/PS5 分開、忽略專屬、自訂分類與資料保護沿用。

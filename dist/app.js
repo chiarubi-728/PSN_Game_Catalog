@@ -115,16 +115,13 @@ function render(){
   art.append(quickClassifications(g,r.status));art.append(el('span',g.platforms.join(' · ')||'PS','platform-badge'));card.append(art);
   const body=el('div',undefined,'card-body'),title=el('button',g.name+' · '+g.platforms.join(' / '),'game-title');title.onclick=()=>edit(g);body.append(title);
   const alternate=g.names.find(name=>name!==g.name);if(alternate)body.append(el('p',alternate,'alternate-name'));
-  const ownership=el('span',g.digitalOwned?'數位擁有':g.digitalMembers.length?'歷史數位授權':'遊玩紀錄','ownership-label');ownership.dataset.owned=String(g.digitalOwned);
-  const ownershipRow=el('div',undefined,'ownership-row');ownershipRow.append(ownership);
+  const line=el('div',undefined,'card-meta card-markers');
+  const item=classificationFor(r.status)||classificationFor(g.platinum?'已白金':'');
+  if(item){const pill=el('span',undefined,'status-pill');pill.dataset.tone=item.tone;pill.append(icon(item.icon),document.createTextNode(r.status==='已白金'&&!g.platinum?'個人白金標記':item.label));line.append(pill);}
   const plusMembers=g.digitalMembers.filter(member=>member.membership==='PS_PLUS');
-  if(plusMembers.length){const badge=el('span',undefined,'ps-plus-badge'),historical=plusMembers.every(member=>missing.has(member.entitlementId));badge.title=historical?'歷史 PS Plus 授權（未出現在最近完整同步）':'授權來源：PS Plus';badge.dataset.historical=String(historical);badge.setAttribute('role','img');badge.setAttribute('aria-label',badge.title);badge.append(icon('ps-plus'));ownershipRow.append(badge);}
-  body.append(ownershipRow);
-  const item=classificationFor(g.platinum?'已白金':r.status),pill=el('span',undefined,'status-pill');
-  if(item){pill.dataset.tone=item.tone;pill.append(icon(item.icon),document.createTextNode(g.platinum?item.label:r.status==='已白金'?'個人白金標記':item.label));}else pill.textContent=g.played?'尚未白金':'未分類';
-  const line=el('div',undefined,'card-meta');line.append(pill,el('span',g.played?'已玩':'尚無遊玩紀錄'));body.append(line);
+  if(plusMembers.length){const badge=el('span',undefined,'ps-plus-badge'),historical=plusMembers.every(member=>missing.has(member.entitlementId));badge.title=historical?'歷史 PS Plus 授權（未出現在最近完整同步）':'授權來源：PS Plus';badge.dataset.historical=String(historical);badge.setAttribute('role','img');badge.setAttribute('aria-label',badge.title);badge.append(icon('ps-plus'));line.append(badge);}
+  if(line.childElementCount)body.append(line);
   if(g.played){const text=[g.progress!==null?g.progress+'%':'獎盃紀錄已同步',g.earnedTotal!==null?g.earnedTotal+(g.definedTotal!==null?' / '+g.definedTotal:'')+' 個獎盃':''].filter(Boolean).join(' · ');body.append(el('p',text,'trophy-summary'));if(g.progress!==null){const progress=el('progress');progress.max=100;progress.value=g.progress;progress.setAttribute('aria-label','獎盃進度 '+g.progress+'%');body.append(progress);}}
-  body.append(el('p',g.sources.map(source=>({digital:'Sony 數位庫',psnprofiles:'PSNProfiles',sony:'Sony 獎盃'})[source]).join(' · '),'source-label'));
   if(r.categories.length||r.tags.length)body.append(el('p',[...r.categories,...r.tags.map(t=>'#'+t)].join(' · '),'tags'));
   if(g.missingCount)body.append(el('p','部分或全部數位授權未出現在最近完整同步','missing'));
   card.append(body);$('grid').append(card);
