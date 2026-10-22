@@ -1,4 +1,4 @@
-name: Deploy PS Game Base to GitHub Pages
+name: Deploy PSN Game Catalog to GitHub Pages
 
 on:
   push:

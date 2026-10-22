@@ -1,6 +1,8 @@
 # Google 雲端自動同步（試用）
 
-使用者已授權在完成程式備份後發布。網站已使用擁有者提供的公開 Google OAuth Client ID，使用者直接按 Google 登入。使用者已回報修正專案選擇並啟用 Drive API 後可繼續；完整跨裝置與衝突流程仍待真實驗收。更新前程式版本為 645fc84，備份標籤 backup/before-auto-cloud-20261020-174410；可用來回復。
+Google Drive 同步為選用功能。網站已提供公開 OAuth Client ID，直接按「Google 登入」即可授權自己的備份空間；不連接 Google 也可在瀏覽器整理及匯出 JSON。
+
+雲端功能需要有效授權及專案的 Google Drive API 設定。網站發布不會變更 Google 品牌或網域審查狀態；實際狀態由擁有者在 Console 確認。跨裝置及衝突流程的驗收範圍見 [目前交接狀態](HANDOFF.md)。
 
 ## 使用流程
 
@@ -30,14 +32,14 @@
 - 完整快照包含使用者確認的 PSN 帳號、平台／來源識別關係及個人標記修改時間。帳號設定也視為本機資料，首次雲端比對不會將已設定帳號當成可直接丟棄的空白狀態。快照內 Sony 與遊玩帳號不一致時拒絕載入；跨版本的整份選擇規則不變。
 - 資料仍有 5 MB 雲端上限。此版本需要頁面開啟及有效授權，不是背景服務；授權過期／重開網站可能需再次連接。新裝置永遠只能取得最後成功上傳的版本。
 
-## 驗收狀態
-
-已做 JavaScript 語法、靜態來源閱讀及 Git 差異檢查。未新增或執行測試，也未實際取得 Google 授權或讀寫使用者的 Drive。本機畫面已透過瀏覽器確認可載入；使用者在原預設 Client ID 遇到 origin_mismatch，網站隨後採用擁有者提供的新公開 Client ID，避免使用參考專案授權；使用者回報專案修正後 API 可用。使用者另回報無法取得雲端版本保護資訊，現已改由 v2 JSON 取得資源 ETag 並在同版 API 更新。仍需以擁有者 OAuth 設定確認 Google 授權來源、實際條件更新、跨裝置讀寫及衝突互動，不能視為已完成線上驗收。
+## 參考文件
 
 參考官方文件：[Google Token 模式](https://developers.google.com/identity/oauth2/web/guides/use-token-model)、[Drive 應用程式資料](https://developers.google.com/workspace/drive/api/guides/appdata)、[Google 帳號識別](https://developers.google.com/identity/openid-connect/reference)。
 
 
-新版第一次在原瀏覽器開啟時，會在讀取及雲端操作前保存更新前的原始存檔（僅保存一次，不覆寫舊備份）。從資料管理「匯出更新前備份」可下載。備份仍在此瀏覽器，清除網站資料會一併清除；如瀏覽器空間不足導致備份失敗，雲端同步會先暫停，請先按「匯出完整備份」並確認檔案已保存。
+## 更新前本機備份
+
+網站會在讀取及雲端操作前保存更新前的原始存檔（僅保存一次，不覆寫舊備份）。從資料管理「匯出更新前備份」可下載。備份仍在此瀏覽器，清除網站資料會一併清除；如瀏覽器空間不足導致備份失敗，雲端同步會先暫停，請先按「匯出完整備份」並確認檔案已保存。
 
 OAuth 仍在測試模式時，朋友需先由網站擁有者將其 Google 帳號加入測試使用者名單。共用 Client ID 只識別網站，不會共用 Google 登入身分；雲端存取使用各自記憶體中的授權權杖。
 
@@ -52,3 +54,5 @@ Google「品牌」頁須先完成應用程式名稱、使用者支援電子郵�
 - 服務條款／說明：`https://chiarubi-728.github.io/PSN_Game_Catalog/terms.html`。
 
 政策依目前實作說明 Google 身分、Drive appDataFolder、瀏覽器保存、復原副本、權杖記憶體保存及刪除方式。修改資料處理方式時需同步更新政策。網站部署不會代為改變 Google Cloud 的發布或驗證狀態；如主控台另要求品牌、網域或資料存取驗證，依其實際要求完成。
+
+[文件目錄](README.md) · [歷次排查紀錄](history/2026-10-22-development-notes.md)

@@ -13,6 +13,7 @@
 | `dist/cloud-sync.js`、`shared/` | Google 登入、雲端版本比對與保存 |
 | `dist/about*`、`privacy.html`、`terms.html`、`policy.css` | 公開介紹與政策頁 |
 | `docs/` | 操作說明、雲端設定與交接 |
+| `docs/history/` | 歷次修正與排查紀錄；目前操作與狀態以其他文件為準 |
 | `tools/check-static.mjs` | 語法與靜態引用檢查，不執行應用程式 |
 | `tools/version-assets.mjs` | 部署時統一更新 HTML 與模組的快取版號 |
 | `server.mjs` | 本機靜態預覽，不提供舊商店查詢 API |
@@ -39,3 +40,5 @@ node tools/check-static.mjs
 - 不因檔名含有舊專案名就改名：存檔鍵、備份 kind 與腳本 URL 都是相容介面。
 - 整理前完整原始碼與舊交接紀錄可由 Git 版本 `d0fbb79` 取回；工作區另外有備份 ZIP。
 - 一次性開發腳本與調查資料屬於本機 work 歸檔，不放進正式儲存庫或部署目錄。
+
+[文件目錄](README.md) · [目前交接狀態](HANDOFF.md)
