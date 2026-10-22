@@ -22,12 +22,12 @@ export function initHistorySync({getState,setHistory,save,render,notice,isDemo,i
         // Extension replies may have a null source; origin and the fresh run
         // session still have to match. Cross-site source messages stay strict.
         if((event.source!==window&&event.source!==null)||event.origin!==location.origin||event.data?.type!=='PSGB_HISTORY_RELAY_READY'||event.data.session!==current.session)return;
-        cleanup();event.data.available?resolve():reject(Error('跨分頁同步尚未就緒。請更新整合腳本至 v0.3.3、同意新增權限，並重新整理遊戲庫後再同步。'));
+        cleanup();event.data.available?resolve():reject(Error('跨分頁同步尚未就緒。請更新整合腳本至 v0.3.4、同意新增權限，並重新整理遊戲庫後再同步。'));
       }
       current.cancelPrepare=()=>{cleanup();reject(Error('已停止等待來源分頁。'));};
       window.addEventListener('message',ready);
       wait=setTimeout(()=>{cleanup();reject(Error('遊戲庫主頁未收到跨分頁通道回應。請確認 Tampermonkey 允許 PSN Game Catalog 在此頁執行，並重新整理主頁。'));},3000);
-      window.postMessage({type:'PSGB_HISTORY_RELAY_START',session:current.session,profile:current.profile},location.origin);
+      window.postMessage({type:'PSGB_HISTORY_RELAY_START',session:current.session,profile:current.profile,knownDates:(getState().history?.sources?.psnprofiles?.games||[]).filter(game=>game.lastTrophyAt).map(game=>({id:game.id,date:game.lastTrophyAt}))},location.origin);
     });
   }
   function download(value,name){const url=URL.createObjectURL(new Blob([JSON.stringify(value,null,2)],{type:'application/json'})),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),10000);}
@@ -35,7 +35,7 @@ export function initHistorySync({getState,setHistory,save,render,notice,isDemo,i
     writable();const previous=getState().history,next=mergeHistory(previous,snapshot);setHistory(next);
     if(!save()){setHistory(previous);throw Error('儲存失敗，遊玩紀錄未寫入。');}
     render();summary();
-    const text=`已匯入 ${snapshot.games.length} 筆${snapshot.provider==='psnprofiles'?' PSNProfiles':' Sony'}遊玩紀錄，包含 ${snapshot.games.filter(game=>game.platinum).length} 筆白金。所有紀錄已加入主清單。${snapshot.coverage==='platinum'?'這份是舊白金資料；請使用 v0.3.3 整合腳本同步完整清單。':''}`;
+    const text=`已匯入 ${snapshot.games.length} 筆${snapshot.provider==='psnprofiles'?' PSNProfiles':' Sony'}遊玩紀錄，包含 ${snapshot.games.filter(game=>game.platinum).length} 筆白金。所有紀錄已加入主清單。${snapshot.coverage==='platinum'?'這份是舊白金資料；請使用 v0.3.4 整合腳本同步完整清單。':''}`;
     say(text);notice(text);pending=null;$('history-account-confirm').hidden=true;
   }
   function receive(raw,expected){

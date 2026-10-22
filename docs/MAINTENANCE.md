@@ -6,6 +6,7 @@
 | --- | --- |
 | `dist/index.html`、`app.js`、`style.css` | 主介面與入口；dist 是原始碼，不是可刪除的產物 |
 | `dist/catalog*.js`、`browse-filters.js` | 遊戲合併、命名、搜尋與篩選 |
+| `dist/dates.js`、`catalog-sort.js` | 日期驗證、日期覆蓋與未知日期排序 |
 | `dist/model.js`、`history.js`、`store-names.js` | 資料格式、舊備份相容、獎盃與官方名稱 |
 | `dist/sync-ui.js`、`script-bridge.js`、`scripts/` | 整合同步與使用者腳本；保留現有安裝 URL |
 | `dist/cloud-sync.js`、`shared/` | Google 登入、雲端版本比對與保存 |

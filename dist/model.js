@@ -1,5 +1,6 @@
 import {readHistory,historySnapshot,mergeHistory,emptyHistory,historyProfile} from './history.js';
 import {readStoreNames} from './store-names.js';
+import {dateValue,readPlayActivity,extremeDate} from './dates.js';
 export const statuses = ['未開始', '想玩', '遊玩中', '已破關', '已白金', '暫停', '不再遊玩'];
 // Keep existing stored codes; only these three are offered for new choices.
 export const classificationOptions = [
@@ -32,6 +33,7 @@ export function library(input) {
     const out = {};
     for (const k of ['name','entitlementId','platform','membership','productId','titleId','conceptId']) if (typeof g[k] === 'string') out[k] = g[k];
     for (const k of ['isActive','isDownloadable','isPreOrder']) if (typeof g[k] === 'boolean') out[k] = g[k];
+    for(const k of ['acquiredAt','lastPlayedAt']){const date=dateValue(g[k]);if(date)out[k]=date;}
     if (typeof g.imageUrl === 'string') { try { const u = new URL(g.imageUrl); if (u.protocol === 'https:') out.imageUrl = u.href; } catch {} }
     return out;
   });
@@ -40,7 +42,10 @@ export function library(input) {
     if(!object(input.account)||input.account.method!=='user'||typeof input.account.confirmedAt!=='string'||!Number.isFinite(Date.parse(input.account.confirmedAt)))fail('數位遊戲庫的帳號確認資訊不正確。');
     account={profile:historyProfile(input.account.profile),method:'user',confirmedAt:new Date(input.account.confirmedAt).toISOString()};
   }
-  return {schemaVersion:1, scope:'active-ps4-ps5-digital-entitlements', complete:input.complete, syncedAt:typeof input.syncedAt === 'string' ? input.syncedAt : null, games,...(account?{account}:{})};
+  const dateSync={};
+  for(const key of ['acquired','played'])if(['complete','partial','unavailable'].includes(input.dateSync?.[key]))dateSync[key]=input.dateSync[key];
+  for(const key of ['acquiredError','playedError'])if(/^(?:HTTP_\d{3}|NETWORK|TIMEOUT|FORMAT_CHANGED|PARTIAL|STOPPED|NO_TOKEN|UNAVAILABLE)$/.test(input.dateSync?.[key]||''))dateSync[key]=input.dateSync[key];
+  return {schemaVersion:1, scope:'active-ps4-ps5-digital-entitlements', complete:input.complete, syncedAt:typeof input.syncedAt === 'string' ? input.syncedAt : null, games,...(account?{account}:{}),...(input.playActivity!==undefined?{playActivity:readPlayActivity(input.playActivity)}:{}),...(Object.keys(dateSync).length?{dateSync}:{})};
 }
 export function assertCatalogAccount(data,expectedProfile){
   const profiles=[data.library?.account?.profile,data.history?.profile,expectedProfile].filter(Boolean).map(historyProfile);
@@ -176,9 +181,9 @@ export function mergeLibrary(previous, incoming) {
   const added = next.games.filter(g => !byId.has(g.entitlementId)).length;
   const current = new Set(next.games.map(g => g.entitlementId));
   const missingIds = next.complete ? old.filter(g => !current.has(g.entitlementId)).map(g => g.entitlementId) : (previous?.missingIds || []).filter(id => !current.has(id));
-  for (const g of next.games) byId.set(g.entitlementId,g);
+  for (const g of next.games){const before=byId.get(g.entitlementId);byId.set(g.entitlementId,{...g,...(g.acquiredAt||before?.acquiredAt?{acquiredAt:g.acquiredAt||before.acquiredAt}:{}),...(g.lastPlayedAt||before?.lastPlayedAt?{lastPlayedAt:extremeDate([g.lastPlayedAt,before?.lastPlayedAt])}:{})});}
   if(previous?.account&&next.account&&previous.account.profile.toLowerCase()!==next.account.profile.toLowerCase())fail('兩份數位遊戲庫屬於不同 PSN 帳號，已停止合併。');
-  return {...next, games:[...byId.values()], missingIds, added,...(next.account||previous?.account?{account:next.account||previous.account}:{})};
+  return {...next, games:[...byId.values()], missingIds, added,...(next.account||previous?.account?{account:next.account||previous.account}:{}),...(next.playActivity||previous?.playActivity?{playActivity:readPlayActivity([...(previous?.playActivity||[]),...(next.playActivity||[])])}:{})};
 }
 export function parseImport(input) {
   if(input?.kind==='ps-game-base-store-names')return {storeNames:readStoreNames(input)};

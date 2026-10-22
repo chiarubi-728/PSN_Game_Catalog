@@ -1,3 +1,4 @@
+import {dateValue,extremeDate} from './dates.js';
 const object=value=>value&&typeof value==='object'&&!Array.isArray(value);
 const fail=message=>{throw Error(message);};
 export function historyProfile(value){
@@ -30,6 +31,7 @@ function normalizeGame(raw,provider,profile){
   if(earnedTotal!==null&&definedTotal!==null&&earnedTotal>definedTotal)fail('獎盃數量超過總數。');
   if(raw.region!==undefined&&(typeof raw.region!=='string'||!/^[A-Z]{2,5}$/.test(raw.region)))fail('遊戲區域格式不正確。');
   return {id,name:raw.name.trim(),platforms,platinum:raw.platinum,progress,earnedTotal,definedTotal,
+    ...(dateValue(raw.lastTrophyAt)?{lastTrophyAt:dateValue(raw.lastTrophyAt)}:{}),
     ...(url?{url,psnprofilesId:id}:{npServiceName:raw.npServiceName,npCommunicationId:raw.npCommunicationId}),
     ...(image(raw.imageUrl)?{imageUrl:image(raw.imageUrl)}:{}),...(raw.region?{region:raw.region}:{})};
 }
@@ -92,7 +94,7 @@ export function readHistory(input){
 export function mergeHistory(previous,snapshot){
   const history=readHistory(previous),incoming=historySnapshot(snapshot,history.profile||undefined),old=history.sources[incoming.provider];
   const byId=new Map((old?.games||[]).map(game=>[game.id,game]));
-  for(const game of incoming.games){const before=byId.get(game.id);byId.set(game.id,{...before,...game,progress:game.progress??before?.progress??null,earnedTotal:game.earnedTotal??before?.earnedTotal??null,definedTotal:game.definedTotal??before?.definedTotal??null});}
+  for(const game of incoming.games){const before=byId.get(game.id);byId.set(game.id,{...before,...game,progress:game.progress??before?.progress??null,earnedTotal:game.earnedTotal??before?.earnedTotal??null,definedTotal:game.definedTotal??before?.definedTotal??null,...(game.lastTrophyAt||before?.lastTrophyAt?{lastTrophyAt:extremeDate([game.lastTrophyAt,before?.lastTrophyAt])}:{})});}
   const mappings=new Map((old?.mappings||[]).map(row=>[row.titleId,row]));
   for(const row of incoming.mappings)mappings.set(row.titleId,row);
   const latestIds=new Set(incoming.games.map(game=>game.id));

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PSN Game Catalog
 // @namespace    personal.ps-game-base
-// @version      0.3.3
+// @version      0.3.4
 // @description  線上整合數位遊戲庫、PSNProfiles 全部遊玩紀錄與 Sony 官方中英文名稱。
 // @match        https://library.playstation.com/*
 // @match        https://store.playstation.com/*
@@ -18,6 +18,7 @@
 // @grant        GM_addValueChangeListener
 // @grant        GM_removeValueChangeListener
 // @connect      store.playstation.com
+// @connect      m.np.playstation.com
 // @sandbox      raw
 // @license      MIT
 // ==/UserScript==
@@ -25,6 +26,96 @@
 /* Library query/pagination adapted from psn-mcp, Copyright (c) 2026 TMRP.
  * MIT license: see LICENSE in this script's distribution directory.
  */
+// PSGB_DATE_TOOLS_START: standalone helpers also exercised with source fixtures.
+const psgbDateTools=(()=>{
+  function date(value){
+    if(typeof value==='number'||typeof value==='string'&&/^\d{10}(?:\d{3})?$/.test(value)){
+      const number=Number(value),stamp=number<1e12?number*1000:number;
+      if(!Number.isFinite(stamp)||!Number.isFinite(new Date(stamp).getTime()))return null;value=new Date(stamp).toISOString();
+    }
+    if(typeof value!=='string'||!/^\d{4}-\d{2}-\d{2}(?:T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2}))?$/.test(value))return null;
+    const [year,month,day]=value.slice(0,10).split('-').map(Number),check=new Date(Date.UTC(year,month-1,day)),stamp=Date.parse(value);
+    if(check.getUTCFullYear()!==year||check.getUTCMonth()!==month-1||check.getUTCDate()!==day||year<1990||!Number.isFinite(stamp)||stamp>Date.now()+86400000)return null;
+    return value.length===10?value:new Date(stamp).toISOString();
+  }
+  function latest(a,b){return !a?b:!b?a:Date.parse(a)>=Date.parse(b)?a:b;}
+  function titleId(raw){const match=/^(CUSA|PPSA)\d{5}(?:_\d{2})?$/.exec(raw||'');return match?(raw.includes('_')?raw:raw+'_00'):null;}
+  function fromNode(node){
+    if(!node)return null;
+    for(const item of [node,...node.querySelectorAll('[datetime],[data-timestamp],[data-time],[data-last-trophy]')])for(const attribute of ['datetime','data-timestamp','data-time','data-last-trophy']){const value=date(item.getAttribute(attribute));if(value)return value;}
+    // Calendar dates are deliberately kept day-only when the page supplies no
+    // timezone. Do not invent an exact UTC time from a displayed local clock.
+    const text=[node,...node.querySelectorAll('.typo-top-date,.typo-bottom-date')].map(item=>item.textContent).join(' ').replace(/(\d)(st|nd|rd|th)\b/gi,'$1').replace(/,/g,' ');
+    const months={jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12};
+    const parts=/\b(\d{1,2})\s+([A-Za-z]{3,9})\s+(20\d{2})\b/.exec(text)||/\b([A-Za-z]{3,9})\s+(\d{1,2})\s+(20\d{2})\b/.exec(text);
+    if(!parts)return null;
+    const day=/^\d/.test(parts[1])?parts[1]:parts[2],month=months[(/^\d/.test(parts[1])?parts[2]:parts[1]).slice(0,3).toLowerCase()];
+    return month?date(parts[3]+'-'+String(month).padStart(2,'0')+'-'+day.padStart(2,'0')):null;
+  }
+  function trophyLogRow(row){
+    // The trophy log has one earned trophy per row, unlike profile activity.
+    const links=[...row.querySelectorAll('a[href]')];let id=null;
+    for(const link of links){let url;try{url=new URL(link.getAttribute('href'),'https://psnprofiles.com');}catch{continue;}if(url.origin!=='https://psnprofiles.com')continue;const match=/^\/(?:trophy|trophies)\/(\d{1,10})-/.exec(url.pathname);if(match){id=match[1];break;}}
+    const cells=[...row.children].filter(node=>node.tagName==='TD');
+    const scope=row.querySelector('.earned-date,.trophy-date')||cells[5];
+    const timestamp=fromNode(scope);return id?{id,date:timestamp}:null;
+  }
+  return {date,latest,titleId,fromNode,trophyLogRow};
+})();
+
+async function psgbReadSonyDates({games,request,progress,isCurrent}){
+  const {date,latest,titleId}=psgbDateTools,activity=new Map(),result={playActivity:[],dateSync:{acquired:'unavailable',played:'unavailable'}};
+  async function pages(path,listName,totalName,extra,consume){
+    let offset=0,total=null;const seen=new Set();
+    for(let page=0;page<50;page++){
+      if(!isCurrent())throw Error('STOPPED');
+      progress();const url=new URL('https://m.np.playstation.com'+path);
+      for(const [name,value] of Object.entries({...extra,limit:200,offset}))url.searchParams.set(name,String(value));
+      const data=await request(url.href);if(!isCurrent())throw Error('STOPPED');
+      const rows=data?.[listName];if(!Array.isArray(rows))throw Error('FORMAT_CHANGED');
+      if(Number.isSafeInteger(data[totalName])&&data[totalName]>=0)total=data[totalName];
+      let added=0;
+      for(const row of rows){const id=String(row?.id??row?.titleId??'');if(id&&!seen.has(id)){seen.add(id);added++;consume(row);}}
+      if(!rows.length){if(total!==null&&offset<total)throw Error('PARTIAL');return;}
+      if(!added)throw Error('PARTIAL');
+      const next=Number.isSafeInteger(data.nextOffset)?data.nextOffset:offset+rows.length;
+      if(total!==null&&offset+rows.length>=total||total===null&&rows.length<200)return;
+      if(next<=offset||next>12000)throw Error('PARTIAL');offset=next;
+      await new Promise(resolve=>setTimeout(resolve,350));
+    }
+    throw Error('PARTIAL');
+  }
+  const acquired=[];
+  try{
+    await pages('/api/entitlement/v2/users/me/internal/entitlements','entitlements','totalResults',{entitlementType:'1,2,3,4,5',fields:'titleMeta,gameMeta,conceptMeta',gameMetaPackageType:'PSGD,PS4GD'},row=>{const acquiredAt=date(row.activeDate);if(acquiredAt)acquired.push({id:String(row.id),productId:row.productId,acquiredAt});});
+    result.dateSync.acquired='complete';
+  }catch(error){result.dateSync.acquired=acquired.length?'partial':'unavailable';result.dateSync.acquiredError=/^(HTTP_\d{3}|NETWORK|TIMEOUT|FORMAT_CHANGED|PARTIAL|STOPPED|NO_TOKEN)$/.test(error.message)?error.message:'UNAVAILABLE';}
+  if(!isCurrent())throw Error('STOPPED');
+  const byId=new Map(acquired.map(row=>[row.id,row])),products=new Map();
+  for(const row of acquired){if(typeof row.productId!=='string'||!row.productId.trim())continue;if(!products.has(row.productId))products.set(row.productId,[]);products.get(row.productId).push(row);}
+  for(const game of games){const productRows=products.get(game.productId)||[],uniqueProduct=typeof game.productId==='string'&&!!game.productId.trim()&&productRows.length===1&&games.filter(other=>other.productId===game.productId).length===1;const match=byId.get(game.entitlementId)||(uniqueProduct?productRows[0]:null);if(match)game.acquiredAt=match.acquiredAt;}
+  function played(row){const id=titleId(row.titleId),lastPlayedAt=date(row.lastPlayedDateTime);if(!id||!lastPlayedAt||typeof row.name!=='string'||!row.name.trim())return;const platform=id.startsWith('CUSA')?'PS4':'PS5';if(row.category&&row.category!==(platform==='PS4'?'ps4_game':'ps5_native_game'))return;const before=activity.get(id);activity.set(id,{titleId:id,name:row.name,platform,lastPlayedAt:latest(before?.lastPlayedAt,lastPlayedAt)});}
+  try{
+    await pages('/api/gamelist/v2/users/me/titles','titles','totalItemCount',{categories:'ps4_game,ps5_native_game'},played);
+    result.dateSync.played='complete';
+  }catch(error){result.dateSync.played=activity.size?'partial':'unavailable';result.dateSync.playedError=/^(HTTP_\d{3}|NETWORK|TIMEOUT|FORMAT_CHANGED|PARTIAL|STOPPED|NO_TOKEN)$/.test(error.message)?error.message:'UNAVAILABLE';}
+  if(!isCurrent())throw Error('STOPPED');
+  // Optional fallback stays on the existing web API and is explicitly partial:
+  // the recently-played query has no dependable full-library pagination.
+  if(result.dateSync.played!=='complete')try{
+    const url=new URL('https://web.np.playstation.com/api/graphql/v1/op');
+    url.searchParams.set('operationName','getUserGameList');url.searchParams.set('variables',JSON.stringify({limit:1000,categories:'ps4_game,ps5_native_game'}));url.searchParams.set('extensions',JSON.stringify({persistedQuery:{version:1,sha256Hash:'e780a6d8b921ef0c59ec01ea5c5255671272ca0d819edb61320914cf7a78b3ae'}}));
+    const data=await request(url.href),rows=data?.data?.gameLibraryTitlesRetrieve?.games;
+    if(Array.isArray(rows)){rows.forEach(played);if(activity.size)result.dateSync.played='partial';}
+  }catch{}
+  if(!isCurrent())throw Error('STOPPED');
+  result.playActivity=[...activity.values()];
+  for(const game of games){const entry=activity.get(titleId(game.titleId));if(entry&&game.platform?.toUpperCase()===entry.platform)game.lastPlayedAt=entry.lastPlayedAt;}
+  return result;
+}
+// PSGB_DATE_TOOLS_END
+
+
 // A per-run extension mailbox survives sites that sever window.opener on navigation.
 // Only public PSNProfiles history crosses it; Sony/Google credentials never enter it.
 const psgbHistoryRelay=(() => {
@@ -65,7 +156,8 @@ const psgbHistoryRelay=(() => {
           if(jobs.has(data.session))release(data.session);
           if(jobs.size>=4){reply(false);return;}
           erase(data.session);
-          const request={managerOrigin:location.origin,sourceOrigin,profile:data.profile,expiresAt:Date.now()+lifetime};
+          const knownDates=Array.isArray(data.knownDates)?data.knownDates.slice(0,10000).filter(item=>/^\d{1,10}$/.test(item?.id||'')&&psgbDateTools.date(item.date)).map(item=>({id:item.id,date:psgbDateTools.date(item.date)})):[];
+          const request={managerOrigin:location.origin,sourceOrigin,profile:data.profile,expiresAt:Date.now()+lifetime,knownDates};
           const job={request,listener:null,timer:null,releaseTimer:null};jobs.set(data.session,job);
           job.listener=GM_addValueChangeListener(key(data.session,'message'),(_name,_old,message)=>{
             if(jobs.get(data.session)!==job||request.expiresAt<=Date.now()||!message||message.session!==data.session||message.sourceOrigin!==sourceOrigin||!messageTypes.has(message.type))return;
@@ -97,7 +189,7 @@ const psgbHistoryRelay=(() => {
         });
         timer=setTimeout(()=>{dispose();erase(session);},Math.max(0,request.expiresAt-Date.now()));
         window.addEventListener('pagehide',dispose,{once:true});
-        return {send(type,payload){
+        return {knownDates:request.knownDates||[],active:()=>!!GM_getValue(key(session,'request')),send(type,payload){
           if(!messageTypes.has(type))return;
           const active=GM_getValue(key(session,'request'));
           if(!active||active.managerOrigin!==origin||active.profile!==request.profile||active.expiresAt<=Date.now())return;
@@ -137,6 +229,7 @@ const psgbHistoryRelay=(() => {
   const operations = new Set();
   let parseStage = '', lastParseError = '';
   let authorization = '', queryHash = '', generation = 0, pending = null;
+  let playActivity=[],dateSync={};
   let games = [], complete = false, syncedAt = '', busy = false, message = '等待官方遊戲庫請求。請登入並切換到「已購買」，再開啟面板。';
   let host,root,sourceProfile=bridge?.profile||'',accountConfirmedAt='',dataAccount=null;
 
@@ -175,7 +268,7 @@ const psgbHistoryRelay=(() => {
       if (queryHash && authorization !== token) {
         generation++;
         pending?.abort();
-        games=[];complete=false;syncedAt='';accountConfirmedAt='';dataAccount=null;
+        games=[];playActivity=[];dateSync={};complete=false;syncedAt='';accountConfirmedAt='';dataAccount=null;
       }
       authorization = token; queryHash = hash;
       if (bridge && !bridgeStarted && accountConfirmedAt) {
@@ -235,7 +328,7 @@ const psgbHistoryRelay=(() => {
     };
   }
 
-  async function request(url, token) {
+  async function request(url, token,readPage=true) {
     const controller = new AbortController(); pending = controller;
     let timedOut = false;
     const timer = setTimeout(() => { timedOut = true; controller.abort(); }, 25000);
@@ -248,12 +341,31 @@ const psgbHistoryRelay=(() => {
       if (r.status !== 200) throw new Error(`查詢失敗（HTTP ${r.status}）。請稍後手動重試。`);
       const data = await r.json();
       if (data.errors?.length) throw new Error('官方 GraphQL 回報錯誤；查詢可能已變更或授權失效。');
+      if(!readPage)return data;
       let result; resolvePage(data, value => { result = value; }); return result;
     } catch (e) {
       if (controller.signal.aborted) throw new Error(timedOut ? '查詢逾時，請手動重試。' : '已停止同步。');
       if (e instanceof TypeError) throw new Error('網頁原生查詢連線失敗，可能為網路或 CORS 限制。請回報此提示。');
       throw e;
     } finally { clearTimeout(timer); if (pending === controller) pending = null; }
+  }
+
+
+  function dateRequest(value,token){
+    const url=new URL(value);
+    if(url.origin==='https://web.np.playstation.com'&&url.pathname==='/api/graphql/v1/op'&&url.searchParams.get('operationName')==='getUserGameList')return request(value,token,false);
+    if(url.origin!=='https://m.np.playstation.com'||!['/api/entitlement/v2/users/me/internal/entitlements','/api/gamelist/v2/users/me/titles'].includes(url.pathname)||url.username||url.password||url.hash)return Promise.reject(Error('UNAVAILABLE'));
+    if(!/^Bearer\s+\S+$/i.test(token||''))return Promise.reject(Error('NO_TOKEN'));
+    return new Promise((resolve,reject)=>{
+      let handle,finished=false;
+      const controller={abort(){finish(Error('STOPPED'));handle?.abort();}};
+      function finish(error,value){if(finished)return;finished=true;if(pending===controller)pending=null;error?reject(error):resolve(value);}
+      pending=controller;
+      try{handle=GM_xmlhttpRequest({method:'GET',url:value,anonymous:true,redirect:'manual',timeout:15000,headers:{Authorization:token,Accept:'application/json'},
+        onload:response=>{try{if(response.status!==200)throw Error('HTTP_'+response.status);if(response.finalUrl&&new URL(response.finalUrl).origin!==url.origin)throw Error('UNAVAILABLE');if(response.responseText.length>10000000)throw Error('FORMAT_CHANGED');finish(null,JSON.parse(response.responseText));}catch(error){finish(/^(HTTP_\d{3}|UNAVAILABLE|FORMAT_CHANGED)$/.test(error.message)?error:Error('FORMAT_CHANGED'));}},
+        onerror:()=>finish(Error('NETWORK')),ontimeout:()=>finish(Error('TIMEOUT')),onabort:()=>finish(Error('STOPPED'))});
+      }catch{finish(Error('UNAVAILABLE'));}
+    });
   }
 
   function resolvePage(data, resolve) {
@@ -282,7 +394,7 @@ const psgbHistoryRelay=(() => {
     if(!accountConfirmedAt||!/^[A-Za-z0-9_-]{1,32}$/.test(sourceProfile)){message='請先確認目前登入 Sony 的 PSN 帳號。';render();return;}
     if(bridge&&sourceProfile.toLowerCase()!==bridge.profile.toLowerCase()){message='來源帳號與遊戲庫預期帳號不同，未開始讀取。';render();return;}
     if (!queryHash) { message = '尚未取得官方查詢碼。請在官方遊戲庫登入，切到其他分類再切回「已購買」。仍無反應時重新整理該頁。'; render(); return; }
-    busy = true; complete = false; syncedAt = ''; games = [];
+    busy = true; complete = false; syncedAt = ''; games = [];playActivity=[];dateSync={};
     const run=++generation,token=authorization,hash=queryHash;
     dataAccount={profile:sourceProfile,method:'user',confirmedAt:accountConfirmedAt};
     const seen = new Map(); let offset = 0;
@@ -312,10 +424,17 @@ const psgbHistoryRelay=(() => {
         if (count === 999) throw new Error('已達分頁上限，結果尚未完整。');
         await new Promise(resolve => setTimeout(resolve, 350));
       }
-    } catch (e) { message = `${e.message} 目前 ${games.length} 筆為部分結果。`; }
+      if(complete){
+        const dates=await psgbReadSonyDates({games,request:value=>dateRequest(value,token),isCurrent:()=>run===generation,progress:()=>{message='數位授權已讀取，正在補齊取得與最後遊玩日期…';render();sendBridge('PSGB_STATUS',{message});}});
+        if(run!==generation)throw Error('已停止同步。');
+        playActivity=dates.playActivity;dateSync=dates.dateSync;
+        const acquired=games.filter(game=>game.acquiredAt).length;
+        message='同步完成：'+games.length+' 筆數位授權；取得日期 '+acquired+' 筆，最後遊玩日期 '+playActivity.length+' 筆。'+(dateSync.acquired!=='complete'||dateSync.played!=='complete'?'部分日期尚無資料，遊戲庫仍已完整讀取。':'');
+      }
+    } catch (e) { complete=false;message = `${e.message} 目前 ${games.length} 筆為部分結果。`; }
     finally {
       busy = false; render();
-      if (complete) sendBridge('PSGB_RESULT', {payload:{schemaVersion:1, scope:'active-ps4-ps5-digital-entitlements', complete, syncedAt, games,account:dataAccount}});
+      if (complete) sendBridge('PSGB_RESULT', {payload:{schemaVersion:1, scope:'active-ps4-ps5-digital-entitlements', complete, syncedAt, games,account:dataAccount,playActivity,dateSync}});
       else {sendBridge('PSGB_STATUS', {message:'官方同步未完整完成，請查看官方分頁提示。'});sendBridge('PSGB_ERROR',{message:'官方同步未完整完成，請查看來源分頁後重試。'});}
     }
   }
@@ -325,6 +444,7 @@ const psgbHistoryRelay=(() => {
     for (const key of ['name', 'platform', 'productId', 'titleId', 'entitlementId', 'conceptId', 'membership']) {
       if (typeof g[key] === 'string') out[key] = g[key];
     }
+    const acquiredAt=psgbDateTools.date(g.acquiredAt||g.activeDate),lastPlayedAt=psgbDateTools.date(g.lastPlayedAt||g.lastPlayedDateTime);if(acquiredAt)out.acquiredAt=acquiredAt;if(lastPlayedAt)out.lastPlayedAt=lastPlayedAt;
     for (const key of ['isActive', 'isDownloadable', 'isPreOrder']) if (typeof g[key] === 'boolean') out[key] = g[key];
     if (typeof g.image?.url === 'string' && /^https:\/\//i.test(g.image.url)) out.imageUrl = g.image.url;
     return out;
@@ -336,9 +456,9 @@ const psgbHistoryRelay=(() => {
   }
   function exportData(format) {
     if (!games.length || busy) return;
-    const fields = ['name', 'platform', 'membership', 'productId', 'titleId', 'entitlementId', 'isActive', 'isDownloadable', 'isPreOrder'];
+    const fields = ['name', 'platform', 'membership', 'productId', 'titleId', 'entitlementId', 'isActive', 'isDownloadable', 'isPreOrder', 'acquiredAt', 'lastPlayedAt'];
     const body = format === 'json'
-      ? JSON.stringify({ schemaVersion: 1, scope: 'active-ps4-ps5-digital-entitlements', complete, syncedAt: syncedAt || null, exportedAt: new Date().toISOString(), games,account:dataAccount }, null, 2)
+      ? JSON.stringify({ schemaVersion: 1, scope: 'active-ps4-ps5-digital-entitlements', complete, syncedAt: syncedAt || null, exportedAt: new Date().toISOString(), games,account:dataAccount,playActivity,dateSync }, null, 2)
       : '\uFEFF' + [['complete', 'syncedAt', ...fields], ...games.map(g => [complete, syncedAt, ...fields.map(k => g[k])])].map(row => row.map(csvCell).join(',')).join('\r\n');
     const blob = new Blob([body], { type: format === 'json' ? 'application/json' : 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob), link = document.createElement('a');
@@ -349,7 +469,7 @@ const psgbHistoryRelay=(() => {
   function render() {
     if (!root) return;
     root.querySelector('#status').textContent = message;
-    root.querySelector('#diagnostics').textContent = `v0.3.3 · fetch ${diagnostics.fetch} / XHR ${diagnostics.xhr} / GraphQL ${diagnostics.graphql} / 已購買 ${diagnostics.purchased} / 無 Bearer ${diagnostics.noBearer} / 缺查詢碼 ${diagnostics.noHash} / 格式錯誤 ${diagnostics.parseError} · 操作：${[...operations].join(', ') || '尚未辨識'}${lastParseError ? ` · 最近解析失敗：${lastParseError}` : ''}`;
+    root.querySelector('#diagnostics').textContent = `v0.3.4 · fetch ${diagnostics.fetch} / XHR ${diagnostics.xhr} / GraphQL ${diagnostics.graphql} / 已購買 ${diagnostics.purchased} / 無 Bearer ${diagnostics.noBearer} / 缺查詢碼 ${diagnostics.noHash} / 格式錯誤 ${diagnostics.parseError} · 操作：${[...operations].join(', ') || '尚未辨識'}${lastParseError ? ` · 最近解析失敗：${lastParseError}` : ''}`;
     root.querySelector('#sync').disabled=busy||!queryHash||!accountConfirmedAt;
     root.querySelector('#source-profile').disabled=busy;root.querySelector('#account-confirm').disabled=busy;root.querySelector('#account-confirm').checked=!!accountConfirmedAt;
     root.querySelector('#stop').disabled = !busy;
@@ -381,9 +501,9 @@ const psgbHistoryRelay=(() => {
     const launch = el('button', 'PSN Game Catalog', root); launch.id = 'launch';
     const panel = el('section', undefined, root); panel.id = 'panel'; panel.hidden = !bridge; panel.setAttribute('aria-label', 'PSN Game Catalog');
     launch.onclick = () => { panel.hidden = !panel.hidden; render(); };
-    el('h2', 'PSN Game Catalog · 遊戲庫 v0.3.3', panel);
+    el('h2', 'PSN Game Catalog · 遊戲庫 v0.3.4', panel);
     if (bridge) el('p', `由 ${bridge.origin} 開啟：完整同步後，遊戲資料將自動回傳該管理頁供確認。登入憑證不會回傳。`, panel);
-    el('p', '僅查詢有效的 PS4／PS5 數位授權，包含免費與 PS Plus。未包含付款紀錄、實體收藏及遊玩時數。權杖與資料僅暫存本分頁，重新整理即清除。', panel);
+    el('p', '查詢有效的 PS4／PS5 數位授權，包含免費與 PS Plus，並嘗試讀取取得及最後遊玩日期。未包含付款紀錄、實體收藏及遊玩時數。權杖與資料僅暫存本分頁，重新整理即清除。', panel);
     const library = el('a', '開啟官方遊戲庫（登入後選「已購買」）', panel); library.href = LIBRARY; library.target = '_blank'; library.rel = 'noopener noreferrer';
     const status = el('p', message, panel); status.id = 'status'; status.setAttribute('role', 'status');
     el('small', undefined, panel).id = 'diagnostics';
@@ -437,7 +557,7 @@ if(location.hostname==='psnprofiles.com'){const initialize=()=>{
   root.append(style);
   const panel = document.createElement('section');root.append(panel);
   function el(tag,text) { const n=document.createElement(tag);n.textContent=text;panel.append(n);return n; }
-  el('h2','PSN Game Catalog · 完整遊玩紀錄 v0.3.3');
+  el('h2','PSN Game Catalog · 完整遊玩紀錄 v0.3.4');
   el('p',bridge ? `將 ${profile} 的全部公開遊戲、獎盃進度與白金狀態傳回 ${origin}。數位版與實體版的遊玩紀錄都會加入主清單，不需逐款配對。` : '請使用全部平台、全部完成狀態並清空搜尋。讀取後可匯出完整遊玩紀錄 JSON，再匯入 Game Base。');
   const status=el('p','準備讀取。');status.setAttribute('role','status');
   const collect=el('button','讀取全部遊戲'), download=el('button','匯出遊玩紀錄 JSON');download.disabled=true;
@@ -503,6 +623,48 @@ if(location.hostname==='psnprofiles.com'){const initialize=()=>{
     }
     return null;
   }
+  async function collectTrophyDates(games){
+    const {date,latest,trophyLogRow}=psgbDateTools,known=new Map((relay?.knownDates||[]).filter(item=>date(item.date)).map(item=>[item.id,date(item.date)]));
+    for(const game of games){const before=known.get(game.psnprofilesId);if(before)game.lastTrophyAt=latest(game.lastTrophyAt,before);}
+    const targets=new Map(games.filter(game=>game.earnedTotal!==0||game.platinum).map(game=>[game.psnprofilesId,game]));
+    if(!targets.size)return;
+    const previousLatest=[...known.values()].sort((a,b)=>Date.parse(b)-Date.parse(a))[0],started=Date.now();
+    const blocked=new Set();let scanned=0,limited=false;
+    // Read actual earned-trophy log dates, never the profile refresh timestamp
+    // or its last-played column. Cache prevents rescanning old history later.
+    for(let page=1;page<=80;page++){
+      if(relay&&!relay.active())return;
+      if(Date.now()-started>90000){limited=true;break;}
+      const found=[...targets.values()].filter(game=>game.lastTrophyAt).length;
+      report('正在讀取最後獲得獎盃時間：'+found+' / '+targets.size+' 款，第 '+page+' 頁…');
+      const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),12000);
+      let response;
+      try{
+        const url=new URL('/'+profile+'/log',location.origin);url.searchParams.set('page',String(page));
+        response=await fetch(url.href,{credentials:'same-origin',signal:controller.signal});
+        if(response.status===404)break;
+        if(!response.ok){limited=true;break;}
+        const final=new URL(response.url);if(final.origin!==location.origin||final.pathname.replace(/\/$/,'').toLowerCase()!==('/'+profile+'/log').toLowerCase()){limited=true;break;}
+        const html=await response.text();if(html.length>5000000){limited=true;break;}
+        const doc=new DOMParser().parseFromString(html,'text/html'),table=doc.querySelector('table.zebra');
+        if(!table){limited=true;break;}
+        const rows=[...table.querySelectorAll('tr')].map(trophyLogRow).filter(Boolean);
+        if(!rows.length)break;scanned++;
+        for(const entry of rows){
+          const game=targets.get(entry.id);if(!game)continue;
+          if(!entry.date){blocked.add(entry.id);continue;}
+          if(!blocked.has(entry.id))game.lastTrophyAt=latest(game.lastTrophyAt,entry.date);
+        }
+        const stamps=rows.map(row=>row.date).filter(Boolean).map(Date.parse);
+        const complete=[...targets.values()].every(game=>game.lastTrophyAt);
+        if(complete&&(!previousLatest||stamps.length&&Math.min(...stamps)<Date.parse(previousLatest)))break;
+        if(page===80)limited=true;
+      }catch{limited=true;break;}finally{clearTimeout(timer);}
+      await new Promise(resolve=>setTimeout(resolve,400));
+    }
+    const found=games.filter(game=>game.lastTrophyAt).length;
+    report('獎盃日期已取得 '+found+' / '+games.length+' 款（讀取 '+scanned+' 頁）'+(limited?'；部分日期尚無資料，遊玩紀錄仍會保存。':'。'));
+  }
   function waitForMore(previous) {
     return new Promise((resolve,reject) => {
       const observer=new MutationObserver(check);
@@ -553,19 +715,21 @@ if(location.hostname==='psnprofiles.com'){const initialize=()=>{
         const totals=/([\d,]+)\s*(?:of|\/)\s*([\d,]+)\s*Trophies/i.exec(row.textContent);
         const image=row.querySelector('td:first-child img'),imageUrl=image?.src;
         const earnedTotal=totals?Number(totals[1].replace(/,/g,'')):null,definedTotal=totals?Number(totals[2].replace(/,/g,'')):null;
-        games.push({name:title.textContent.trim(),platforms,psnprofilesId:source.id,url:source.url,platinum:earned,progress:progressFor(row),earnedTotal,definedTotal,...(imageUrl?.startsWith('https://')?{imageUrl}:{}),...(region?{region}:{})});
+        const lastTrophyAt=psgbDateTools.fromNode(row.querySelector('[data-last-trophy],.last-trophy'));
+        games.push({name:title.textContent.trim(),platforms,psnprofilesId:source.id,url:source.url,platinum:earned,progress:progressFor(row),earnedTotal,definedTotal,...(lastTrophyAt?{lastTrophyAt}:{}),...(imageUrl?.startsWith('https://')?{imageUrl}:{}),...(region?{region}:{})});
       }
       if(failed.length){
-        diagnostic={kind:'ps-game-base-psnprofiles-diagnostic',schemaVersion:1,scriptVersion:'0.3.3',profile,createdAt:new Date().toISOString(),stage,expectedTotal,pageCount,totalRows:rows.length,parsedRows:games.length,failedRows:failed.length,samples:failed.slice(0,8)};
+        diagnostic={kind:'ps-game-base-psnprofiles-diagnostic',schemaVersion:1,scriptVersion:'0.3.4',profile,createdAt:new Date().toISOString(),stage,expectedTotal,pageCount,totalRows:rows.length,parsedRows:games.length,failedRows:failed.length,samples:failed.slice(0,8)};
         diagnosticButton.disabled=false;const first=failed[0];throw Error(`已辨識 ${games.length} / ${rows.length} 筆；第 ${first.row} 筆「${first.name||'名稱空白'}」：${first.reasons.join('、')}。請按「匯出讀取診斷」提供檔案；目前未匯入不完整清單。`);
       }
       if(new Set(games.map(g=>g.psnprofilesId)).size!==games.length)throw Error('清單有重複紀錄，請重新整理後再試。');
+      await collectTrophyDates(games);
       snapshot={kind:'ps-game-base-psnprofiles-history',schemaVersion:1,complete:true,profile,exportedAt:new Date().toISOString(),games};
       report(`已讀取全部 ${games.length} 筆遊戲：${games.filter(game=>game.platinum).length} 筆白金、${games.filter(game=>!game.platinum).length} 筆尚未白金。${bridge?'等待 Game Base 確認保存。':'可匯出完整遊玩紀錄。'}`);
       send('PSGB_HISTORY_RESULT',{payload:snapshot});download.disabled=false;
       if(bridge)setTimeout(()=>{if(!acknowledged)status.textContent=`已讀取 ${games.length} 筆遊戲，但尚未收到 Game Base 保存確認。可按「匯出遊玩紀錄 JSON」，回遊戲庫匯入。`;},5000);
     } catch(e) {
-      if(!diagnostic){const control=moreControl();diagnostic={kind:'ps-game-base-psnprofiles-diagnostic',schemaVersion:1,scriptVersion:'0.3.3',profile,createdAt:new Date().toISOString(),stage,expectedTotal,pageCount,totalRows:gameRows().length,remaining:remainingGames(control),controlText:controlText(control),samples:[],error:String(e.message).slice(0,600)};}
+      if(!diagnostic){const control=moreControl();diagnostic={kind:'ps-game-base-psnprofiles-diagnostic',schemaVersion:1,scriptVersion:'0.3.4',profile,createdAt:new Date().toISOString(),stage,expectedTotal,pageCount,totalRows:gameRows().length,remaining:remainingGames(control),controlText:controlText(control),samples:[],error:String(e.message).slice(0,600)};}
       diagnosticButton.disabled=false;report(e.message);send('PSGB_HISTORY_ERROR',{message:String(e.message).slice(0,500)});
     } finally {busy=false;collect.disabled=false;}
   }
@@ -643,7 +807,7 @@ if(location.hostname==='psnprofiles.com'){const initialize=()=>{
   window.addEventListener('message',async event=>{
     if(event.origin!==location.origin||(event.source!==window&&event.source!==(typeof unsafeWindow==='undefined'?window:unsafeWindow)))return;
     const data=event.data;if(!data||!/^[a-f0-9-]{36}$/i.test(data.requestId||''))return;
-    if(data.type==='PSGB_CATALOG_PING'){reply(data.requestId,{version:'0.3.3',onlineNames:true});return;}
+    if(data.type==='PSGB_CATALOG_PING'){reply(data.requestId,{version:'0.3.4',onlineNames:true});return;}
     if(data.type==='PSGB_CATALOG_CANCEL'){const job=jobs.get(data.requestId);if(job){job.stopped=true;for(const abort of [...job.aborters])abort();}return;}
     if(data.type!=='PSGB_CATALOG_NAMES')return;
     if(jobs.size||!Array.isArray(data.products)||!data.products.length||data.products.length>4||data.products.some(item=>!item||!productPattern.test(item.productId||'')||item.conceptId!==undefined&&!/^\d{1,12}$/.test(item.conceptId))){reply(data.requestId,null,'INVALID_REQUEST');return;}
