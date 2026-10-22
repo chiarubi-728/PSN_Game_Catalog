@@ -126,13 +126,10 @@ function render(){
  $('stat-platinum').textContent=trophyStats.platinum;$('stat-platinum-label').textContent='白金';
  $('stat-platinum-note').textContent=providerName?providerName+' · 依來源獎盃 ID 計數；個人標記另存':'同步遊玩紀錄後顯示來源白金數';
  $('stat-platinum-caption').title=$('stat-platinum-note').textContent;
- $('stat-owned').textContent=games.filter(g=>g.digitalOwned).length;$('stat-played').textContent=trophyStats.played;
- $('stat-played-note').textContent=providerName?providerName+' · '+trophyStats.unfinished+' 款尚未白金'+(trophyStats.coverage==='platinum'?'（僅舊白金資料）':''):'同步來源的全部遊玩紀錄';
  const sources=Object.values(state.history?.sources||{});
  const times=[state.library.syncedAt,...sources.map(item=>item.updatedAt)].map(value=>Date.parse(value)).filter(Number.isFinite),latest=times.length?Math.max(...times):null;
  const profile=state.library.account?.profile||state.history?.profile;
  $('summary').textContent=demo?'示範模式 · 操作不會寫入你的遊戲庫':[profile,latest?'最近更新 '+new Date(latest).toLocaleString('zh-TW',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):'匯入或同步你的遊戲庫。'].filter(Boolean).join(' · ');
- $('stat-played-detail').title=$('stat-played-note').textContent;
  const names={all:'所有遊戲',unorganized:'尚未整理','ps-plus':'PS Plus','non-ps-plus':'非 PS Plus',platinum:'白金',ignored:'忽略',tracked:'追蹤'};
  $('heading').textContent=category||names[view];
  for(const b of $('views').querySelectorAll('button')){const active=b.dataset.view===view;b.classList.toggle('active',active);b.setAttribute('aria-pressed',String(active));}
@@ -169,8 +166,7 @@ function render(){
  }
  if(cardCategoryMenu.open){const anchor=[...$('grid').querySelectorAll('.quick-folder')].find(button=>button.dataset.workKey===cardMenuKey);anchor?cardCategoryMenu.refresh(anchor):cardCategoryMenu.close(false);}
  customFilterMenu.refresh($('custom-category-filter'));
- $('browse-retained').hidden=!retainedRecords.size;
- $('result-count').textContent=filtered.length+' / '+games.length+' 張遊戲／平台卡片 · '+filtered.reduce((count,g)=>count+g.digitalMembers.length,0)+' 筆數位授權'+(selected.size?' · 已選 '+selected.size+' 張':'');$('page-label').textContent=page+' / '+pages;$('prev').disabled=page===1;$('next').disabled=page===pages;renderBatch();$('reset-demo').hidden=!demo;unifiedSync?.refresh();cloudSync?.refresh();
+ $('result-count').textContent='共 '+filtered.length+' 款遊戲';$('page-label').textContent=page+' / '+pages;$('prev').disabled=page===1;$('next').disabled=page===pages;renderBatch();$('reset-demo').hidden=!demo;unifiedSync?.refresh();cloudSync?.refresh();
 }
 function renderBatch(){$('batch').hidden=!selected.size;$('selected-count').textContent=`已選 ${selected.size} 款遊戲`;$('apply-category').disabled=!selected.size||!$('batch-category').value;}
 function quickClassifications(game,r){
@@ -320,7 +316,7 @@ unifiedSync=initUnifiedSync({historySync,getState:()=>state,isDemo:()=>demo,isBl
  saveLibrary:(raw,profile)=>{
   if(demo||writesBlocked())throw Error('目前無法儲存，請先處理資料保存提示。');
   const incoming=library(raw);if(!incoming.complete)throw Error('數位遊戲庫尚未完整讀取，未套用部分結果。');
-  if(!incoming.account||incoming.account.profile.toLowerCase()!==profile.toLowerCase())throw Error('尚未在 Sony 分頁確認正確帳號。請更新整合腳本至 v0.3.7，重新整理來源頁後重試。');
+  if(!incoming.account||incoming.account.profile.toLowerCase()!==profile.toLowerCase())throw Error('尚未在 Sony 分頁確認正確帳號。請更新整合腳本至 v0.3.8，重新整理來源頁後重試。');
   assertCatalogAccount({library:incoming,history:state.history},profile);
   if(!commitState({...state,library:mergeLibrary(state.library,incoming)}))throw Error('儲存失敗，已停止同步；請保留資料並重試。');
   resetBrowsing();selected.clear();render();return incoming.games.length;

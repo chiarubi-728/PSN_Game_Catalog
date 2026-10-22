@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PSN Game Catalog
 // @namespace    personal.ps-game-base
-// @version      0.3.7
+// @version      0.3.8
 // @description  線上整合數位遊戲庫、PSNProfiles 全部遊玩紀錄與 Sony 官方中英文名稱。
 // @match        https://library.playstation.com/*
 // @match        https://store.playstation.com/*
@@ -17,6 +17,8 @@
 // @grant        GM_listValues
 // @grant        GM_addValueChangeListener
 // @grant        GM_removeValueChangeListener
+// @grant        GM_getTab
+// @grant        GM_saveTab
 // @connect      store.playstation.com
 // @connect      m.np.playstation.com
 // @sandbox      raw
@@ -189,10 +191,41 @@ const psgbSonyRelay=(()=>{
   const sessionPattern=/^[a-f0-9-]{36}$/i,profilePattern=/^[A-Za-z0-9_-]{1,32}$/;
   const allowed=new Set(['https://chiarubi-728.github.io','http://127.0.0.1:4175','http://localhost:4175']);
   const manager=location.origin==='https://chiarubi-728.github.io'&&location.pathname.startsWith('/PSN_Game_Catalog/')||['http://127.0.0.1:4175','http://localhost:4175'].includes(location.origin);
-  const supported=typeof GM_getValue==='function'&&typeof GM_setValue==='function'&&typeof GM_deleteValue==='function'&&typeof GM_listValues==='function'&&typeof GM_addValueChangeListener==='function'&&typeof GM_removeValueChangeListener==='function';
+  const supported=typeof GM_getValue==='function'&&typeof GM_setValue==='function'&&typeof GM_deleteValue==='function'&&typeof GM_listValues==='function'&&typeof GM_addValueChangeListener==='function'&&typeof GM_removeValueChangeListener==='function'&&typeof GM_getTab==='function'&&typeof GM_saveTab==='function';
   const key=(session,part)=>prefix+session+'.'+part,types=new Set(['PSGB_STATUS','PSGB_RESULT','PSGB_ERROR','PSGB_MOVING']);
   const valid=request=>request&&allowed.has(request.managerOrigin)&&request.sourceOrigin===sourceOrigin&&profilePattern.test(request.profile||'')&&Number.isFinite(request.expiresAt)&&request.expiresAt>Date.now()&&request.expiresAt<=Date.now()+lifetime;
   function erase(session){for(const part of ['request','message','control'])GM_deleteValue(key(session,part));}
+  if(manager&&location.pathname.endsWith('/sony-launch.html')){
+    // Seed the actual source tab before visiting Sony: an HTTP login redirect
+    // can happen before the userscript ever executes on the first Sony page.
+    let ended=false,timer;
+    function failLaunch(){
+      if(ended)return;ended=true;clearTimeout(timer);
+      const show=()=>{const status=document.getElementById('sony-launch-status');if(status)status.textContent='無法開啟本輪同步。請回遊戲庫重試，並確認整合腳本已更新及啟用。';};
+      if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',show,{once:true});else show();
+    }
+    try{
+      const params=new URLSearchParams(location.hash.slice(1)),session=params.get('psgbSession');
+      const request=supported&&sessionPattern.test(session||'')&&GM_getValue(key(session,'request'));
+      if(!valid(request)||request.managerOrigin!==location.origin||params.get('psgbOrigin')!==location.origin)throw Error('Invalid launch');
+      const current=()=>{const value=GM_getValue(key(session,'request'));return valid(value)&&value.managerOrigin===request.managerOrigin&&value.profile===request.profile&&value.expiresAt===request.expiresAt;};
+      timer=setTimeout(failLaunch,8000);
+      GM_getTab(tab=>{
+        try{
+          if(ended)return;if(!current())return failLaunch();
+          tab=tab&&typeof tab==='object'?tab:{};tab.psgbSonySource={session,managerOrigin:request.managerOrigin};
+          GM_saveTab(tab,()=>{
+            try{
+              if(ended)return;if(!current())return failLaunch();
+              const url=new URL('/recently-purchased',sourceOrigin);url.hash=new URLSearchParams({psgbOrigin:request.managerOrigin,psgbSession:session,psgbProfile:request.profile}).toString();
+              ended=true;clearTimeout(timer);location.replace(url.href);
+            }catch{failLaunch();}
+          });
+        }catch{failLaunch();}
+      });
+    }catch{failLaunch();}
+    return {supported,source:async()=>null};
+  }
   function nextUrl(raw,request){
     try{
       const url=new URL(raw),params=new URLSearchParams(url.hash.slice(1));
@@ -241,17 +274,39 @@ const psgbSonyRelay=(()=>{
     });
     window.addEventListener('pagehide',()=>{for(const session of [...jobs.keys()])try{release(session);}catch{}});
   }
-  return {supported,source({onSaved}={}){
+  return {supported,async source({onSaved}={}){
     if(!supported||location.origin!==sourceOrigin)return null;
     try{
       const params=new URLSearchParams(location.hash.slice(1)),hint=params.get('psgbSession'),origin=params.get('psgbOrigin');
-      let session,request;
+      const bindingKey='psgb.sony-source.v1';
+      let session,request,cached,tab;
+      try{cached=JSON.parse(sessionStorage.getItem(bindingKey)||'null');}catch{}
+      const binding=()=>({session,managerOrigin:request.managerOrigin});
+      const remember=()=>{try{sessionStorage.setItem(bindingKey,JSON.stringify(binding()));}catch{}};
       if(hint||origin){
         if(!sessionPattern.test(hint||''))return null;
         const candidate=GM_getValue(key(hint,'request'));if(!valid(candidate)||candidate.managerOrigin!==origin)return null;session=hint;request=candidate;
-      }else{
-        // Sony can discard fragments during login. Recover only an unambiguous
-        // pending run; never select one arbitrarily when several managers wait.
+        // Save synchronously before Sony can redirect. The tab-local extension
+        // record also survives a cross-origin login that clears page storage.
+        remember();
+      }
+      if(typeof GM_getTab==='function'&&typeof GM_saveTab==='function')tab=await new Promise(resolve=>{
+        const timeout=setTimeout(()=>resolve(null),1000);
+        try{GM_getTab(value=>{clearTimeout(timeout);resolve(value&&typeof value==='object'?value:{});});}catch{clearTimeout(timeout);resolve(null);}
+      });
+      function forget(){
+        try{if(JSON.parse(sessionStorage.getItem(bindingKey)||'null')?.session===session)sessionStorage.removeItem(bindingKey);}catch{}
+        if(tab?.psgbSonySource?.session===session){delete tab.psgbSonySource;try{GM_saveTab(tab);}catch{}}
+      }
+      if(!request&&(cached||tab?.psgbSonySource)){
+        const saved=cached||tab.psgbSonySource;session=saved.session;
+        const candidate=sessionPattern.test(session||'')&&GM_getValue(key(session,'request'));
+        if(!valid(candidate)||candidate.managerOrigin!==saved.managerOrigin){forget();return null;}
+        request=candidate;
+      }
+      if(!request){
+        // Compatibility for a first visit without a saved tab binding. A bound
+        // but cancelled/expired run never falls back to a different account.
         const candidates=[];
         for(const name of GM_listValues()){
           if(!name.startsWith(prefix)||!name.endsWith('.request'))continue;
@@ -259,17 +314,26 @@ const psgbSonyRelay=(()=>{
         }
         if(candidates.length!==1)return null;({session,request}=candidates[0]);
       }
+      if(!valid(request)){forget();return null;}
+      remember();if(tab){tab.psgbSonySource=binding();GM_saveTab(tab);}
       let listener,timer,moving=false,finished=false;
       const active=()=>{const current=GM_getValue(key(session,'request'));return !finished&&valid(current)&&current.managerOrigin===request.managerOrigin&&current.profile===request.profile&&current.expiresAt===request.expiresAt;};
       const send=(type,payload={})=>{if(!types.has(type)||!active())return;GM_setValue(key(session,'message'),{...payload,type,session,sourceOrigin,nonce:crypto.randomUUID()});};
       function dispose(){clearTimeout(timer);if(listener!==undefined){GM_removeValueChangeListener(listener);listener=undefined;}}
-      listener=GM_addValueChangeListener(key(session,'control'),(_name,_old,control)=>{
+      function controlReceived(control){
         if(control?.session!==session||!active())return;
         if(control.saved)onSaved?.();
-        if(control.type==='NEXT'&&!moving){const url=nextUrl(control.url,request);if(!url)return;moving=true;send('PSGB_MOVING',{url});dispose();location.href=url;}
-        if(control.type==='FINISH'){finished=true;dispose();}
-      });
-      timer=setTimeout(dispose,request.expiresAt-Date.now());window.addEventListener('pagehide',dispose,{once:true});
+        if(control.type==='NEXT'&&!moving){const url=nextUrl(control.url,request);if(!url)return;moving=true;forget();send('PSGB_MOVING',{url});dispose();location.href=url;}
+        if(control.type==='FINISH'){finished=true;forget();dispose();}
+      }
+      function listen(){
+        dispose();if(!active()){forget();return;}
+        listener=GM_addValueChangeListener(key(session,'control'),(_name,_old,control)=>controlReceived(control));
+        timer=setTimeout(()=>{forget();dispose();},request.expiresAt-Date.now());
+        controlReceived(GM_getValue(key(session,'control')));
+      }
+      listen();window.addEventListener('pagehide',dispose);
+      window.addEventListener('pageshow',event=>{if(event.persisted)listen();});
       return {origin:request.managerOrigin,session,profile:request.profile,active,send};
     }catch{return null;}
   }};
@@ -286,8 +350,7 @@ const psgbSonyRelay=(()=>{
   // Add a deployed manager origin here only after you explicitly trust it.
   const MANAGER_ORIGINS = new Set(['http://127.0.0.1:4175', 'http://localhost:4175', 'https://chiarubi-728.github.io']);
   // Only library data crosses the bridge; bearer tokens stay in this tab.
-  const relay=psgbSonyRelay.source({onSaved:()=>{message='遊戲庫已確認保存。';render();}});
-  let bridge = relay?{origin:relay.origin,session:relay.session,profile:relay.profile,relay}:null, bridgeStarted = false;
+  let bridge = null, bridgeStarted = false;
   try {
     const params = new URLSearchParams(location.hash.slice(1));
     const origin = params.get('psgbOrigin'), session = params.get('psgbSession');
@@ -309,6 +372,17 @@ const psgbSonyRelay=(()=>{
   let dateSync={};
   let games = [], complete = false, syncedAt = '', busy = false, message = '等待官方遊戲庫請求。請登入並切換到「已購買」，再開啟面板。';
   let host,root,sourceProfile=bridge?.profile||'',accountConfirmedAt='',dataAccount=null;
+
+  // Resolve the extension's tab record without delaying interception of Sony's
+  // first network requests. The panel can already exist when login returns.
+  void psgbSonyRelay.source({onSaved:()=>{message='遊戲庫已確認保存。';render();}}).then(relay=>{
+    if(!relay||!relay.active()||busy||complete||bridge&&bridge.session!==relay.session)return;
+    bridge={origin:relay.origin,session:relay.session,profile:relay.profile,relay};
+    sourceProfile=relay.profile;accountConfirmedAt='';bridgeStarted=false;
+    message='請確認 Sony 登入帳號為 '+sourceProfile+'，再勾選帳號確認以繼續同步。';
+    if(root){const input=root.querySelector('#source-profile');input.value=sourceProfile;input.readOnly=true;root.querySelector('#panel').hidden=false;render();}
+    sendBridge('PSGB_STATUS',{message});
+  });
 
   function parsePayload(body, url) {
     const query = Object.fromEntries(url.searchParams);
@@ -543,7 +617,7 @@ const psgbSonyRelay=(()=>{
   function render() {
     if (!root) return;
     root.querySelector('#status').textContent = message;
-    root.querySelector('#diagnostics').textContent = `v0.3.7 · fetch ${diagnostics.fetch} / XHR ${diagnostics.xhr} / GraphQL ${diagnostics.graphql} / 已購買 ${diagnostics.purchased} / 無 Bearer ${diagnostics.noBearer} / 缺查詢碼 ${diagnostics.noHash} / 格式錯誤 ${diagnostics.parseError} · 操作：${[...operations].join(', ') || '尚未辨識'}${lastParseError ? ` · 最近解析失敗：${lastParseError}` : ''}`;
+    root.querySelector('#diagnostics').textContent = `v0.3.8 · fetch ${diagnostics.fetch} / XHR ${diagnostics.xhr} / GraphQL ${diagnostics.graphql} / 已購買 ${diagnostics.purchased} / 無 Bearer ${diagnostics.noBearer} / 缺查詢碼 ${diagnostics.noHash} / 格式錯誤 ${diagnostics.parseError} · 操作：${[...operations].join(', ') || '尚未辨識'}${lastParseError ? ` · 最近解析失敗：${lastParseError}` : ''}`;
     root.querySelector('#sync').disabled=busy||!queryHash||!accountConfirmedAt;
     root.querySelector('#source-profile').disabled=busy;root.querySelector('#account-confirm').disabled=busy;root.querySelector('#account-confirm').checked=!!accountConfirmedAt;
     root.querySelector('#stop').disabled = !busy;
@@ -575,7 +649,7 @@ const psgbSonyRelay=(()=>{
     const launch = el('button', 'PSN Game Catalog', root); launch.id = 'launch';
     const panel = el('section', undefined, root); panel.id = 'panel'; panel.hidden = !bridge; panel.setAttribute('aria-label', 'PSN Game Catalog');
     launch.onclick = () => { panel.hidden = !panel.hidden; render(); };
-    el('h2', 'PSN Game Catalog · 遊戲庫 v0.3.7', panel);
+    el('h2', 'PSN Game Catalog · 遊戲庫 v0.3.8', panel);
     const advanced=el('details',undefined,panel);advanced.id='source-details';el('summary','進階／讀取診斷',advanced);
     if (bridge) el('p', `由 ${bridge.origin} 開啟：完整同步後，遊戲資料將自動回傳該管理頁供確認。登入憑證不會回傳。`, advanced);
     el('p', '查詢有效的 PS4／PS5 數位授權，包含免費與 PS Plus，並嘗試讀取取得日期。未包含付款紀錄、實體收藏及遊玩時數。權杖與資料僅暫存本分頁，重新整理即清除。', advanced);
@@ -633,7 +707,7 @@ if(location.hostname==='psnprofiles.com'){const initialize=()=>{
   root.append(style);
   const panel = document.createElement('section');root.append(panel);
   function el(tag,text) { const n=document.createElement(tag);n.textContent=text;panel.append(n);return n; }
-  el('h2','PSN Game Catalog · 完整遊玩紀錄 v0.3.7');
+  el('h2','PSN Game Catalog · 完整遊玩紀錄 v0.3.8');
   el('p',bridge ? `將 ${profile} 的全部公開遊戲、獎盃進度與白金狀態傳回 ${origin}。數位版與實體版的遊玩紀錄都會加入主清單，不需逐款配對。` : '請使用全部平台、全部完成狀態並清空搜尋。讀取後可匯出完整遊玩紀錄 JSON，再匯入 Game Base。');
   const status=el('p','準備讀取。');status.setAttribute('role','status');
   const collect=el('button','讀取全部遊戲'), download=el('button','匯出遊玩紀錄 JSON');download.disabled=true;
@@ -795,7 +869,7 @@ if(location.hostname==='psnprofiles.com'){const initialize=()=>{
         games.push({name:title.textContent.trim(),platforms,psnprofilesId:source.id,url:source.url,platinum:earned,progress:progressFor(row),earnedTotal,definedTotal,...(lastTrophyAt?{lastTrophyAt}:{}),...(imageUrl?.startsWith('https://')?{imageUrl}:{}),...(region?{region}:{})});
       }
       if(failed.length){
-        diagnostic={kind:'ps-game-base-psnprofiles-diagnostic',schemaVersion:1,scriptVersion:'0.3.7',profile,createdAt:new Date().toISOString(),stage,expectedTotal,pageCount,totalRows:rows.length,parsedRows:games.length,failedRows:failed.length,samples:failed.slice(0,8)};
+        diagnostic={kind:'ps-game-base-psnprofiles-diagnostic',schemaVersion:1,scriptVersion:'0.3.8',profile,createdAt:new Date().toISOString(),stage,expectedTotal,pageCount,totalRows:rows.length,parsedRows:games.length,failedRows:failed.length,samples:failed.slice(0,8)};
         diagnosticButton.disabled=false;const first=failed[0];throw Error(`已辨識 ${games.length} / ${rows.length} 筆；第 ${first.row} 筆「${first.name||'名稱空白'}」：${first.reasons.join('、')}。請按「匯出讀取診斷」提供檔案；目前未匯入不完整清單。`);
       }
       if(new Set(games.map(g=>g.psnprofilesId)).size!==games.length)throw Error('清單有重複紀錄，請重新整理後再試。');
@@ -805,7 +879,7 @@ if(location.hostname==='psnprofiles.com'){const initialize=()=>{
       send('PSGB_HISTORY_RESULT',{payload:snapshot});download.disabled=false;
       if(bridge)setTimeout(()=>{if(!acknowledged)status.textContent=`已讀取 ${games.length} 筆遊戲，但尚未收到 Game Base 保存確認。可按「匯出遊玩紀錄 JSON」，回遊戲庫匯入。`;},5000);
     } catch(e) {
-      if(!diagnostic){const control=moreControl();diagnostic={kind:'ps-game-base-psnprofiles-diagnostic',schemaVersion:1,scriptVersion:'0.3.7',profile,createdAt:new Date().toISOString(),stage,expectedTotal,pageCount,totalRows:gameRows().length,remaining:remainingGames(control),controlText:controlText(control),samples:[],error:String(e.message).slice(0,600)};}
+      if(!diagnostic){const control=moreControl();diagnostic={kind:'ps-game-base-psnprofiles-diagnostic',schemaVersion:1,scriptVersion:'0.3.8',profile,createdAt:new Date().toISOString(),stage,expectedTotal,pageCount,totalRows:gameRows().length,remaining:remainingGames(control),controlText:controlText(control),samples:[],error:String(e.message).slice(0,600)};}
       diagnosticButton.disabled=false;report(e.message);send('PSGB_HISTORY_ERROR',{message:String(e.message).slice(0,500)});
     } finally {busy=false;collect.disabled=false;}
   }
@@ -883,7 +957,7 @@ if(location.hostname==='psnprofiles.com'){const initialize=()=>{
   window.addEventListener('message',async event=>{
     if(event.origin!==location.origin||(event.source!==window&&event.source!==(typeof unsafeWindow==='undefined'?window:unsafeWindow)))return;
     const data=event.data;if(!data||!/^[a-f0-9-]{36}$/i.test(data.requestId||''))return;
-    if(data.type==='PSGB_CATALOG_PING'){reply(data.requestId,{version:'0.3.7',onlineNames:true,sonyRelay:psgbSonyRelay.supported});return;}
+    if(data.type==='PSGB_CATALOG_PING'){reply(data.requestId,{version:'0.3.8',onlineNames:true,sonyRelay:psgbSonyRelay.supported});return;}
     if(data.type==='PSGB_CATALOG_CANCEL'){const job=jobs.get(data.requestId);if(job){job.stopped=true;for(const abort of [...job.aborters])abort();}return;}
     if(data.type!=='PSGB_CATALOG_NAMES')return;
     if(jobs.size||!Array.isArray(data.products)||!data.products.length||data.products.length>4||data.products.some(item=>!item||!productPattern.test(item.productId||'')||item.conceptId!==undefined&&!/^\d{1,12}$/.test(item.conceptId))){reply(data.requestId,null,'INVALID_REQUEST');return;}

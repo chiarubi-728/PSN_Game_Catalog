@@ -5,7 +5,8 @@ import {prepareSonyRelay,navigateSonyRelay,stopSonyRelay} from './source-relay.j
 
 export function initUnifiedSync({historySync,getState,saveLibrary,confirmAccount,syncNames,cancelNames,isDemo,isBlocked,notice}){
   const $=id=>document.getElementById(id),dialog=$('sync-dialog');
-  let active=null,lastMode='all',setupMode='all';
+  let active=null,lastMode='all',setupMode='all',closeTimer;
+  dialog.addEventListener('close',()=>clearTimeout(closeTimer));
   function setup(mode){
     setupMode=mode;const state=getState(),locked=!!(state.history.profile||state.library.games.length&&state.library.account),profile=locked?(state.history.profile||state.library.account.profile):$('sync-profile').value.trim()||state.library.account?.profile||'';
     $('account-setup-profile').value=profile;$('account-setup-profile').readOnly=locked;
@@ -23,7 +24,7 @@ export function initUnifiedSync({historySync,getState,saveLibrary,confirmAccount
   };
   function say(text){$('sync-status').textContent=text;$('sync-state').textContent=text;}
   function step(id,state){const node=$('sync-step-'+id);node.dataset.state=state;node.querySelector('span').textContent={waiting:'待處理',running:'進行中',done:'完成',error:'未完成',skipped:'此次略過'}[state];}
-  function show(){if(!dialog.open)dialog.showModal();}
+  function show(){clearTimeout(closeTimer);if(!dialog.open)dialog.showModal();}
   function clean(){
     if(active){
       clearTimeout(active.timer);active.controller.abort();stopSonyRelay(active.session,active.digitalSaved);
@@ -39,7 +40,13 @@ export function initUnifiedSync({historySync,getState,saveLibrary,confirmAccount
     clean();if(stage==='history')historySync.cancel();if(stage==='names')cancelNames();
     say((run.digitalSaved?'數位授權已保存。':'')+error.message);$('sync-retry').hidden=false;
   }
-  function finish(run,text){if(active!==run)return;clean();$('sync-retry').hidden=true;say(text);$('sync-state').textContent='遊戲庫同步完成';notice(text);}
+  function finish(run,text){
+    if(active!==run)return;
+    clean();$('sync-retry').hidden=true;say(text);$('sync-state').textContent='遊戲庫同步完成';notice(text);
+    if(run.mode==='all'&&['digital','history','names'].every(id=>$('sync-step-'+id).dataset.state==='done')){
+      closeTimer=setTimeout(()=>{if(!active&&dialog.open)dialog.close();},1000);
+    }
+  }
   async function names(run,snapshot){
     if(active!==run)return;run.stage='names';step('names','running');
     say('3 / 3 · 正在自動補齊官方中英文名稱。');
@@ -61,7 +68,7 @@ export function initUnifiedSync({historySync,getState,saveLibrary,confirmAccount
   async function digital(run){
     if(active!==run)return;
     await prepareSonyRelay(run.session,run.profile,{signal:run.controller.signal});if(active!==run)return;run.relay=true;
-    const url=new URL('https://library.playstation.com/recently-purchased');url.hash=new URLSearchParams({psgbOrigin:location.origin,psgbSession:run.session,psgbProfile:run.profile}).toString();
+    const url=new URL('sony-launch.html',location.href);url.hash=new URLSearchParams({psgbOrigin:location.origin,psgbSession:run.session}).toString();
     run.child.location.href=url.href;
     say('1 / 3 · 請在來源分頁登入 PlayStation、切到「已購買」，並確認登入帳號為 '+run.profile+'。');
     run.timer=setTimeout(()=>fail(run,Error('等候數位遊戲庫逾時。請確認整合腳本已安裝，並在官方分頁切到「已購買」，再重試。')),300000);
@@ -71,14 +78,15 @@ export function initUnifiedSync({historySync,getState,saveLibrary,confirmAccount
       say('正在確認同步腳本…');
       const ready=await pingScript({timeout:3000,signal:run.controller.signal});
       if(active!==run)return;
-      const version=String(ready?.version||'').split('.').map(Number),minimum=[0,3,7],different=minimum.findIndex((value,index)=>version[index]!==value);
-      if(!ready?.onlineNames||!ready?.sonyRelay||version.length!==3||version.some(value=>!Number.isSafeInteger(value)||value<0)||different>=0&&version[different]<minimum[different])throw Object.assign(Error('請更新整合腳本至 v0.3.7，並重新整理遊戲庫與來源分頁。'),{code:'script-update'});
+      const version=String(ready?.version||'').split('.').map(Number),minimum=[0,3,8],different=minimum.findIndex((value,index)=>version[index]!==value);
+      if(!ready?.onlineNames||!ready?.sonyRelay||version.length!==3||version.some(value=>!Number.isSafeInteger(value)||value<0)||different>=0&&version[different]<minimum[different])throw Object.assign(Error('請更新整合腳本至 v0.3.8，並重新整理遊戲庫與來源分頁。'),{code:'script-update'});
       $('script-help').hidden=true;
       if(active!==run)return;
       if(run.mode==='names')await names(run);else if(run.mode==='history')history(run);else await digital(run);
     }catch(error){fail(run,error);}
   }
   function start(mode='all'){
+    clearTimeout(closeTimer);
     if(active){show();return;}
     if(isDemo())return notice('請先離開示範模式，再同步個人遊戲庫。');
     if(isBlocked())return notice('請先處理資料保存提示，再開始同步。');

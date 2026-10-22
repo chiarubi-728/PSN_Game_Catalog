@@ -23,7 +23,7 @@ export function catalogSortSummary(cards,field,sync={}){
   let text=dateSorts[field]+'：'+count+' / '+cards.length+' 款有日期，沒有日期的排在最後。';
   if(!count){
     const error=field==='acquiredAt'?sync.acquiredError:null;
-    if(error==='NO_TOKEN')text+='Sony 網頁登入未提供日期 API 所需權杖。請更新至 v0.3.7 後重新同步，將使用 Sony 回傳的取得先後順序。';
+    if(error==='NO_TOKEN')text+='Sony 網頁登入未提供日期 API 所需權杖。請更新至 v0.3.8 後重新同步，將使用 Sony 回傳的取得先後順序。';
     else if(/^HTTP_\d{3}$/.test(error||''))text+='日期來源回報 '+error.replace('_',' ')+'；遊戲庫仍已保存。';
     else if(error)text+='日期來源暫無法讀取（'+error+'）；遊戲庫仍已保存。';
     else text+='可更新整合腳本後重新同步；來源未提供的日期會留空。';

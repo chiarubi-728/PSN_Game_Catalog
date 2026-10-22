@@ -12,7 +12,7 @@ export function initStoreNames({getState,setNames,save,render,isBlocked,isDemo})
       writable();const products=storeNameRequests(getState().library,getState().storeNames,{retryFailed});
       if(!products.length){summary();return {complete:true,resolved:0,failed:0};}
       controller=new AbortController();button.disabled=true;stop.hidden=false;
-      const ready=await pingScript({signal:controller.signal});if(!ready?.onlineNames)throw Error('請先更新整合腳本至 v0.3.7，再重新整理此網站。');available=true;
+      const ready=await pingScript({signal:controller.signal});if(!ready?.onlineNames)throw Error('請先更新整合腳本至 v0.3.8，再重新整理此網站。');available=true;
       for(let offset=0;offset<products.length;offset+=4){
         writable();if(controller.signal.aborted)throw Error('已停止名稱查詢。');
         say('正在補齊官方名稱：'+done+' / '+products.length+'，已取得 '+resolved+'，暫無資料 '+failed+'。');
