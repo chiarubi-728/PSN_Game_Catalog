@@ -6,7 +6,8 @@
 <p>PSN Game Catalog 是由 GitHub 使用者 chiarubi-728 維護的個人 PlayStation 遊戲整理工具，合併 Sony 數位授權與 PSNProfiles 遊玩、獎盃紀錄，提供分類、標籤、筆記及選用的 Google Drive 自動同步。</p>
 <p class="notice">遊戲庫先保存在你的瀏覽器。只有你連接 Google 並授權後，才會讀寫該 Google 帳號的 Drive 應用程式資料。網站不要求你提供 Google 或 PlayStation 密碼。</p>
 <h2>1. 處理哪些資料，以及用途</h2>
-<ul><li><strong>遊戲庫資料：</strong>匯入或同步的遊戲名稱、商品識別碼、平台、數位授權與 PS Plus 資訊、由你設定並確認的 PSN 帳號、Sony 數位庫帳號確認時間及遊玩、獎盃進度；來源有提供時也包含取得／領取、最後遊玩及最後獲得獎盃日期，用於合併、搜尋、排序、顯示及整理遊戲，不讀取付款紀錄。</li><li><strong>個人整理：</strong>你設定的分類、標籤、筆記、名稱別名、標記及配對前後的紀錄識別關係，用於保存你的整理結果及繼承分類與筆記。</li><li><strong>Google 帳號資料：</strong>授權後讀取帳號識別碼（sub）及電子郵件。識別碼用於辨識同步帳號，電子郵件用於顯示目前連接的帳號。</li><li><strong>同步資訊：</strong>瀏覽器保存 OAuth Client ID、Google 帳號識別碼、同步版本摘要及時間，用於比較版本及避免把不同帳號的資料直接覆蓋。</li></ul>
+<ul><li><strong>遊戲庫資料：</strong>匯入或同步的遊戲名稱、商品識別碼、平台、數位授權與 PS Plus 資訊、由你設定並確認的 PSN 帳號、Sony 數位庫帳號確認時間及遊玩、獎盃進度；來源有提供時也包含取得／領取及最後獲得獎盃日期，用於合併、搜尋、排序、顯示及整理遊戲，不讀取付款紀錄。</li><li><strong>個人整理：</strong>你設定的分類、標籤、筆記、名稱別名、標記及配對前後的紀錄識別關係，用於保存你的整理結果及繼承分類與筆記。</li><li><strong>Google 帳號資料：</strong>授權後讀取帳號識別碼（sub）及電子郵件。識別碼用於辨識同步帳號，電子郵件用於顯示目前連接的帳號。</li><li><strong>同步資訊：</strong>瀏覽器保存 OAuth Client ID、Google 帳號識別碼、同步版本摘要及時間，用於比較版本及避免把不同帳號的資料直接覆蓋。</li></ul>
+<p>舊版本曾保存的最後遊玩日期仍可隨既有備份保留與還原；現行版本不再主動查詢或顯示這項日期。</p>
 <h2>2. Google 授權範圍</h2>
 <ul><li><code>openid</code>：辨識你登入的 Google 帳號。</li><li><code>https://www.googleapis.com/auth/userinfo.email</code>：顯示連接的帳號電子郵件。</li><li><code>https://www.googleapis.com/auth/drive.appdata</code>：在你自己的 Google Drive 應用程式資料夾（appDataFolder）中讀寫遊戲庫備份。</li></ul>
 <p>Drive 權限限於本應用程式的隱藏資料空間，不能據此瀏覽或修改你的其他 Drive 文件。不同 Google 帳號的雲端資料分開儲存。</p>
@@ -18,7 +19,7 @@
 <h2>4. 資料使用與對外連線</h2>
 <p>Google 使用者資料只用於上述帳號辨識、備份及同步功能。本應用程式不出售 Google 使用者資料，不將其用於廣告、廣告追蹤或訓練人工智慧模型，也不自動向其他使用者公開你的遊戲庫與筆記。</p>
 <p>本應用程式對 Google API 資料的使用遵守 <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>，包括 Limited Use 規定。</p>
-<p>網站會連接 Google 登入服務、Google Drive 與 Google Fonts；遊戲圖片及來源同步可能連接 Sony、PSNProfiles。整合腳本在你啟動來源同步時讀取相應頁面與公開遊戲名稱資料，並嘗試向 Sony 的 m.np.playstation.com API 取得本帳號的授權與遊玩日期。Sony 存取權杖只在來源分頁記憶體中使用，不回傳管理頁、不寫入備份。這些服務及 GitHub Pages 可能依各自政策處理 IP 位址、瀏覽器資訊等連線資料。</p>
+<p>網站會連接 Google 登入服務、Google Drive 與 Google Fonts；遊戲圖片及來源同步可能連接 Sony、PSNProfiles。整合腳本在你啟動來源同步時讀取相應頁面與公開遊戲名稱資料，並嘗試向 Sony 的 m.np.playstation.com API 取得本帳號的授權日期。Sony 存取權杖只在來源分頁記憶體中使用，不回傳管理頁、不寫入備份。這些服務及 GitHub Pages 可能依各自政策處理 IP 位址、瀏覽器資訊等連線資料。</p>
 <h2>5. 保留、移除與你的選擇</h2>
 <ul><li>可以不連接 Google，使用瀏覽器本機保存及 JSON 匯入、匯出。</li><li>「中斷連接」會清除目前頁面記憶體中的授權狀態，停止同步；不會刪除已保存的本機或雲端遊戲庫。</li><li>可以在 <a href="https://myaccount.google.com/connections">Google 帳號的第三方連結設定</a>撤銷本應用程式的授權。撤銷存取不會自動刪除既有備份。</li><li>若要刪除雲端資料，可至 Google Drive 的「設定 → 管理應用程式」，找到對應的 OAuth 應用程式，從選項刪除隱藏的應用程式資料。刪除前請先中斷本網站的同步，避免重新上傳。</li><li>若要刪除本機資料，可在瀏覽器清除此網站的儲存資料，這也會移除該瀏覽器的更新前備份與復原副本。清除本機資料不會自動刪除 Drive 備份。</li><li>你下載的 JSON 備份由你自行保管及刪除。共用電腦請特別留意：中斷 Google 連接後，本機遊戲庫仍然存在。</li></ul>
 <h2>6. 政策更新與聯絡</h2>

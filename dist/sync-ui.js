@@ -68,9 +68,9 @@ export function initUnifiedSync({historySync,getState,saveLibrary,confirmAccount
         say('正在確認遊戲庫主頁與整合腳本的連線…');
         const ready=await pingScript({timeout:3000});
         if(active!==run)return;
-        const version=String(ready?.version||'').split('.').map(Number),minimum=[0,3,5];
+        const version=String(ready?.version||'').split('.').map(Number),minimum=[0,3,6];
         const different=minimum.findIndex((value,index)=>version[index]!==value);
-        if(!ready?.onlineNames||version.length!==3||version.some(value=>!Number.isSafeInteger(value)||value<0)||different>=0&&version[different]<minimum[different])throw Error('請安裝／更新整合腳本至 v0.3.5，並重新整理遊戲庫主頁後再同步。');
+        if(!ready?.onlineNames||version.length!==3||version.some(value=>!Number.isSafeInteger(value)||value<0)||different>=0&&version[different]<minimum[different])throw Error('請安裝／更新整合腳本至 v0.3.6，並重新整理遊戲庫主頁後再同步。');
       }
       if(active!==run)return;
       if(run.mode==='history')history(run);else digital(run);

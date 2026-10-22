@@ -72,3 +72,9 @@ v0.3.3 新增 Tampermonkey 本輪專用回報通道，管理頁先完成註冊�
 來源：PSN API getRecentlyPlayedGames.ts 與 operationHashes.ts 確認回應欄位及近期查詢結構；FriendsOfGalaxy/galaxy-integration-psn src/psn_client.py 明列 DEFAULT_LIMIT=100 為最大值。手機 API 對照 PSNAWP GameEntitlements；僅作輔助，不要求使用者提供憑證。
 
 本輪瀏覽器驗收：獨立 localhost:4187 人工資料，零日期但有取得順序時正反排序生效，無順序最後，HTTP 503 安全提示顯示，console 無 error。真實備份解析前後授權 594、遊玩 213、獎盃日期 76、personal JSON 完全一致。全套 82 項中 53 通過、29 失敗，失敗名稱集合與最初基準一致，沒有新增失敗。
+
+## 2026-10-22：移除最後遊玩時間（v0.3.6）
+
+依使用者要求，資料覆蓋不足的最後遊玩日期不再出現在排序與詳細資料。保留名稱、取得／領取與最後獲得獎盃排序，Sony 取得先後順序備援仍在。腳本刪除 gamelist 與 getUserGameList 請求、對應狀態與匯出新資料；主頁不再做 playActivity 的卡片配對計算。model／dates 舊欄位白名單及 merge 相容保留，現有備份與資料不因功能退役而清除。
+
+更新版號 v0.3.6，同步前最低版號同步更新。操作說明與隱私政策改成現行兩種日期。原始碼備份 outputs/backups/20261022-remove-last-played/before-remove-last-played-ca42842.zip，先前輸出 ZIP 也保留。已調整既有日期測試案例以對應退役功能；本輪未新增或執行測試，只做語法、引用、HTML 靜態檢查與 Git 差異檢查。

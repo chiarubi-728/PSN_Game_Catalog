@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import vm from 'node:vm';
-import {dateValue,readPlayActivity} from '../dist/dates.js';
+import {dateValue} from '../dist/dates.js';
 import {compareCatalog,catalogSortPlan,catalogSortSummary} from '../dist/catalog-sort.js';
 import {library,emptyPersonal,mergeLibrary,parseImport} from '../dist/model.js';
 import {emptyHistory,historySnapshot,mergeHistory} from '../dist/history.js';
@@ -24,8 +24,8 @@ test('dates reject rollover, unzoned times, future and unknown; calendar precisi
   for(const value of [NaN,Infinity,1e100])assert.equal(context.tools.date(value),null);
   assert.equal(context.tools.date(1713607200),stamp);
 });
-test('all three sorts put missing dates last in both directions and ties remain deterministic',()=>{
-  for(const field of ['acquiredAt','lastPlayedAt','lastTrophyAt']){
+test('both date sorts put missing dates last in both directions and ties remain deterministic',()=>{
+  for(const field of ['acquiredAt','lastTrophyAt']){
     const cards=[{key:'z',name:'Z'},{key:'n',name:'New',[field]:stamp},{key:'o',name:'Old',[field]:older},{key:'a',name:'A'}];
     assert.deepEqual([...cards].sort((a,b)=>compareCatalog(a,b,{field,direction:'desc'})).map(c=>c.key),['n','o','a','z']);
     assert.deepEqual([...cards].sort((a,b)=>compareCatalog(a,b,{field,direction:'asc'})).map(c=>c.key),['o','n','a','z']);
@@ -49,44 +49,29 @@ test('partial/no-date later sync preserves known dates and does not substitute s
   assert.equal(mergeHistory(before,history([{}])).sources.psnprofiles.games[0].lastTrophyAt,older);
   assert.equal(historySnapshot(history([{}])).games[0].lastTrophyAt,undefined);
 });
-test('card dates use earliest grant and latest trophy/activity without mixing PS4 and PS5',()=>{
+test('card dates use earliest grant and latest trophy without mixing PS4 and PS5',()=>{
   const input=library({...lib([{...game('a'),acquiredAt:stamp},{...game('b'),acquiredAt:older},{...game('ps4','PS4'),acquiredAt:'2022-01-01'}]),playActivity:[{titleId:'PPSA12345_00',platform:'PS5',name:'Game',lastPlayedAt:stamp}]});
   const h=mergeHistory(emptyHistory(),history([{lastTrophyAt:older}]));
   const cards=unifiedCatalog(input,emptyPersonal(),h,{records:{}});
   assert.equal(cards.find(c=>c.platforms[0]==='PS5').acquiredAt,older);
-  assert.equal(cards.find(c=>c.platforms[0]==='PS5').lastPlayedAt,stamp);
-  assert.equal(cards.find(c=>c.platforms[0]==='PS4').lastPlayedAt,null);
   assert.equal(cards.find(c=>c.platforms[0]==='PS5').lastTrophyAt,older);
 });
-test('physical/history-only cards receive unique same-platform activity; regional stacks stay unknown',()=>{
-  const base={...lib([]),playActivity:[{titleId:'PPSA12345_00',platform:'PS5',name:'Game',lastPlayedAt:stamp}]};
-  const one=unifiedCatalog(base,emptyPersonal(),mergeHistory(emptyHistory(),history([{}])),{records:{}});
-  assert.equal(one[0].lastPlayedAt,stamp);
-  const ambiguous=unifiedCatalog(base,emptyPersonal(),mergeHistory(emptyHistory(),history([{},{}])),{records:{}});
-  assert.equal(ambiguous.every(c=>c.lastPlayedAt===null),true);
-  assert.deepEqual(readPlayActivity([{titleId:'CUSA12345_00',platform:'PS5',name:'Game',lastPlayedAt:stamp}]),[]);
+
+test('Sony acquisition dates join exact entitlements without requesting play activity',async()=>{
+ const games=[game('a')],calls=[];
+ const result=await context.readSony({games,isCurrent:()=>true,progress(){},request:async value=>{const url=new URL(value);calls.push(url.pathname);return {totalResults:1,entitlements:[{id:'a',activeDate:older,token:'secret'}]};}});
+ assert.equal(games[0].acquiredAt,older);assert.equal(games[0].lastPlayedAt,undefined);
+ assert.deepEqual(calls,['/api/entitlement/v2/users/me/internal/entitlements']);
+ assert.deepEqual(plain(result),{dateSync:{acquired:'complete'}});assert.equal(JSON.stringify(result).includes('secret'),false);
 });
-test('Sony augmentation joins exact entitlements and title IDs, with sequential pagination',async()=>{
-  const games=[game('a')],calls=[];
-  const response=await context.readSony({games,isCurrent:()=>true,progress(){},request:async value=>{
-    const url=new URL(value);calls.push(url);
-    if(url.pathname.includes('entitlement'))return {totalResults:1,entitlements:[{id:'a',activeDate:older,token:'secret'}]};
-    return {totalItemCount:1,titles:[{titleId:'PPSA12345_00',category:'ps5_native_game',name:'Game',lastPlayedDateTime:stamp,token:'secret'}]};
-  }});
-  assert.equal(games[0].acquiredAt,older);assert.equal(games[0].lastPlayedAt,stamp);assert.equal(response.playActivity.length,1);
-  assert.equal(JSON.stringify(response).includes('secret'),false);assert.equal(calls.length,2);
-  assert.deepEqual(plain(response.dateSync),{acquired:'complete',played:'complete'});
+
+test('Sony acquisition-date errors keep the digital library usable',async()=>{
+ const games=[game('a')];let calls=0;
+ const result=await context.readSony({games,isCurrent:()=>true,progress(){},request:async()=>{calls++;throw Error('HTTP_403');}});
+ assert.equal(games.length,1);assert.equal(games[0].acquiredAt,undefined);assert.equal(calls,1);
+ assert.deepEqual(plain(result.dateSync),{acquired:'unavailable',acquiredError:'HTTP_403'});
 });
-test('Sony errors keep the digital library usable; web recent activity is explicitly partial',async()=>{
-  const games=[game('a')],calls=[];
-  const result=await context.readSony({games,isCurrent:()=>true,progress(){},request:async value=>{
-    const url=new URL(value);calls.push(url);
-    if(url.origin==='https://m.np.playstation.com')throw Error('HTTP_403');
-    return {data:{gameLibraryTitlesRetrieve:{games:[{titleId:'PPSA12345_00',platform:'PS5',name:'Game',lastPlayedDateTime:stamp}]}}};
-  }});
-  assert.equal(games.length,1);assert.equal(games[0].acquiredAt,undefined);assert.equal(games[0].lastPlayedAt,stamp);
-  assert.equal(result.dateSync.played,'partial');assert.equal(result.dateSync.acquiredError,'HTTP_403');assert.equal(calls.length,3);
-});
+
 test('cancelled Sony runs do not send additional requests or mutate dates',async()=>{
   let calls=0;
   await assert.rejects(context.readSony({games:[game('a')],isCurrent:()=>false,progress(){},request:async()=>{calls++;}}),/STOPPED/);
@@ -102,18 +87,15 @@ test('trophy parser reads earned log dates, preserves day precision and ignores 
   assert.equal(context.tools.trophyLogRow(row),null);
 });
 
-test('Sony paginates 201 grants and activities without skipping the second page',async()=>{
-  const calls=[],games=[game('grant200')];
-  const result=await context.readSony({games,isCurrent:()=>true,progress(){},request:async value=>{
-    const url=new URL(value),offset=Number(url.searchParams.get('offset'));calls.push([url.pathname,offset]);
-    const indices=Array.from({length:offset===0?200:1},(_,index)=>index+offset);
-    if(url.pathname.includes('entitlement'))return {totalResults:201,entitlements:indices.map(i=>({id:'grant'+i,activeDate:older}))};
-    return {totalItemCount:201,titles:indices.map(i=>({titleId:i===200?'PPSA12345_00':'PPSA'+String(20000+i)+'_00',name:'Game '+i,category:'ps5_native_game',lastPlayedDateTime:stamp}))};
-  }});
-  assert.deepEqual(calls.map(call=>call[1]),[0,200,0,200]);
-  assert.equal(games[0].acquiredAt,older);assert.equal(games[0].lastPlayedAt,stamp);
-  assert.equal(result.playActivity.length,201);assert.equal(result.dateSync.played,'complete');
+test('Sony paginates 201 grants without skipping the second page',async()=>{
+ const calls=[],games=[game('grant200')];
+ const result=await context.readSony({games,isCurrent:()=>true,progress(){},request:async value=>{
+  const url=new URL(value),offset=Number(url.searchParams.get('offset'));calls.push(offset);
+  return {totalResults:201,entitlements:Array.from({length:offset===0?200:1},(_,i)=>({id:'grant'+(offset+i),activeDate:older}))};
+ }});
+ assert.deepEqual(calls,[0,200]);assert.equal(games[0].acquiredAt,older);assert.equal(result.dateSync.acquired,'complete');
 });
+
 test('Sony repeated pages stop as partial and keep already collected dates',async()=>{
   let grantCalls=0;
   const games=[game('a')];
@@ -132,23 +114,14 @@ test('an unrelated grant with no product ID cannot supply an acquired date',asyn
  assert.equal(games[0].acquiredAt,undefined);
 });
 
-test('cookie-only Sony login uses web recent query limit 100 and preserves the missing-token cause',async()=>{
- const games=[game('a')];let webCalls=0;
- const result=await context.readSony({games,isCurrent:()=>true,progress(){},request:async value=>{
-  const url=new URL(value);if(url.origin==='https://m.np.playstation.com')throw Error('NO_TOKEN');
-  webCalls++;assert.equal(JSON.parse(url.searchParams.get('variables')).limit,100);
-  return {data:{gameLibraryTitlesRetrieve:{games:[{titleId:'PPSA12345',platform:'PS5',name:'Game',lastPlayedDateTime:'2024-04-20T10:00:00.000000Z'}]}}};
- }});
- assert.equal(webCalls,1);assert.equal(result.dateSync.played,'partial');assert.equal(result.dateSync.playedError,'NO_TOKEN');
- assert.equal(games[0].lastPlayedAt,stamp);assert.equal(games[0].acquiredAt,undefined);
+test('cookie-only Sony login preserves the missing-token cause without a recent-play query',async()=>{
+ const games=[game('a')],calls=[];
+ const result=await context.readSony({games,isCurrent:()=>true,progress(){},request:async value=>{calls.push(new URL(value).pathname);throw Error('NO_TOKEN');}});
+ assert.deepEqual(calls,['/api/entitlement/v2/users/me/internal/entitlements']);
+ assert.deepEqual(plain(result),{dateSync:{acquired:'unavailable',acquiredError:'NO_TOKEN'}});
+ assert.equal(games[0].acquiredAt,undefined);
 });
-test('web recent failures are safe, exported and shown instead of being silently discarded',async()=>{
- const result=await context.readSony({games:[game('a')],isCurrent:()=>true,progress(){},request:async value=>{throw Error(new URL(value).origin==='https://m.np.playstation.com'?'NO_TOKEN':'HTTP_503');}});
- assert.equal(result.dateSync.webPlayedError,'HTTP_503');
- const normalized=library({...lib([game('a')]),dateSync:plain(result.dateSync)});
- assert.equal(normalized.dateSync.webPlayedError,'HTTP_503');
- assert.match(catalogSortSummary([{name:'Game'}],'lastPlayedAt',normalized.dateSync),/HTTP 503/);
-});
+
 test('Sony acquisition order survives a merge independently of existing map insertion order',()=>{
  const previous=library(lib([{...game('older'),conceptId:'1',name:'A'},{...game('newer'),conceptId:'2',name:'Z'}]));
  const incoming={...lib([{...game('newer'),conceptId:'2',name:'Z'},{...game('older'),conceptId:'1',name:'A'}]),acquisitionOrder:['newer','older'],dateSync:{acquired:'unavailable',acquiredError:'NO_TOKEN'}};

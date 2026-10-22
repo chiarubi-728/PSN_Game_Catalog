@@ -5,7 +5,7 @@ import {officialNamesFor} from './store-names.js';
 import {localizeCatalogNames} from './catalog-display-names.js';
 import {groupVerifiedEditions} from './catalog-editions.js';
 import {historyRecordKey as historyKey} from './catalog-personal.js';
-import {extremeDate,readPlayActivity} from './dates.js';
+import {extremeDate} from './dates.js';
 export {catalogRecordFor,catalogRecordNotes} from './catalog-personal.js';
 const platformKey=game=>game.platforms.join('/');
 export {historyKey as historyRecordKey};
@@ -45,15 +45,8 @@ export function unifiedCatalog(library,personal,history,storeNames){
     const preferred=card.historyEntries.find(entry=>entry.provider==='sony'&&entry.progress!==null)||card.historyEntries.find(entry=>entry.progress!==null)||card.historyEntries[0];
     const ranks=card.historyEntries.map(entry=>sourceRanks.get(entry.provider+':'+entry.id)).filter(Number.isFinite);
     const acquisitionPositions=card.digitalMembers.map(game=>acquisitionRanks.get(game.entitlementId)).filter(Number.isSafeInteger);
-    return {...card,acquisitionRank:acquisitionPositions.length?Math.max(...acquisitionPositions):null,acquiredAt:extremeDate(card.digitalMembers.map(game=>game.acquiredAt),false),lastPlayedAt:extremeDate(card.digitalMembers.map(game=>game.lastPlayedAt)),lastTrophyAt:extremeDate(card.historyEntries.map(entry=>entry.lastTrophyAt)),sourceOrder:ranks.length?Math.min(...ranks):null,progress:preferred?.progress??null,earnedTotal:preferred?.earnedTotal??null,definedTotal:preferred?.definedTotal??null,names:[...new Set([...card.members.map(g=>g.name),...(card.officialNames||[]),...card.historyEntries.map(g=>g.name)])],sources:[...(card.digitalMembers.length?['digital']:[]),...new Set(card.historyEntries.map(g=>g.provider))]};
+    return {...card,acquisitionRank:acquisitionPositions.length?Math.max(...acquisitionPositions):null,acquiredAt:extremeDate(card.digitalMembers.map(game=>game.acquiredAt),false),lastTrophyAt:extremeDate(card.historyEntries.map(entry=>entry.lastTrophyAt)),sourceOrder:ranks.length?Math.min(...ranks):null,progress:preferred?.progress??null,earnedTotal:preferred?.earnedTotal??null,definedTotal:preferred?.definedTotal??null,names:[...new Set([...card.members.map(g=>g.name),...(card.officialNames||[]),...card.historyEntries.map(g=>g.name)])],sources:[...(card.digitalMembers.length?['digital']:[]),...new Set(card.historyEntries.map(g=>g.provider))]};
   }),storeNames);
-  for(const activity of readPlayActivity(library.playActivity)){
-    const exact=localized.filter(card=>card.digitalMembers.some(game=>gameTitleId(game)===activity.titleId));
-    // History-only (e.g. disc) cards may match a unique exact title/alias on
-    // the same platform. Never assign one timestamp to ambiguous stacks.
-    const candidates=exact.length?exact:localized.filter(card=>!card.digitalMembers.length&&card.platforms.length===1&&card.platforms[0]===activity.platform&&titleMatch({...card,members:card.names.map(name=>({name}))},activity.name,workRecordFor(personal,card)));
-    if(candidates.length===1)candidates[0].lastPlayedAt=extremeDate([candidates[0].lastPlayedAt,activity.lastPlayedAt]);
-  }
   return localized;
 }
 export const catalogPlatinum=work=>work.platinum===true;
