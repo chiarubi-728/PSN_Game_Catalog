@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import vm from 'node:vm';
 import {dateValue,readPlayActivity} from '../dist/dates.js';
-import {compareCatalog} from '../dist/catalog-sort.js';
+import {compareCatalog,catalogSortPlan,catalogSortSummary} from '../dist/catalog-sort.js';
 import {library,emptyPersonal,mergeLibrary,parseImport} from '../dist/model.js';
 import {emptyHistory,historySnapshot,mergeHistory} from '../dist/history.js';
 import {unifiedCatalog} from '../dist/catalog.js';
@@ -130,4 +130,41 @@ test('an unrelated grant with no product ID cannot supply an acquired date',asyn
  const games=[game('ours')];
  await context.readSony({games,isCurrent:()=>true,progress(){},request:async value=>new URL(value).pathname.includes('entitlement')?{totalResults:1,entitlements:[{id:'unrelated',activeDate:older}]}:{totalItemCount:0,titles:[]}});
  assert.equal(games[0].acquiredAt,undefined);
+});
+
+test('cookie-only Sony login uses web recent query limit 100 and preserves the missing-token cause',async()=>{
+ const games=[game('a')];let webCalls=0;
+ const result=await context.readSony({games,isCurrent:()=>true,progress(){},request:async value=>{
+  const url=new URL(value);if(url.origin==='https://m.np.playstation.com')throw Error('NO_TOKEN');
+  webCalls++;assert.equal(JSON.parse(url.searchParams.get('variables')).limit,100);
+  return {data:{gameLibraryTitlesRetrieve:{games:[{titleId:'PPSA12345',platform:'PS5',name:'Game',lastPlayedDateTime:'2024-04-20T10:00:00.000000Z'}]}}};
+ }});
+ assert.equal(webCalls,1);assert.equal(result.dateSync.played,'partial');assert.equal(result.dateSync.playedError,'NO_TOKEN');
+ assert.equal(games[0].lastPlayedAt,stamp);assert.equal(games[0].acquiredAt,undefined);
+});
+test('web recent failures are safe, exported and shown instead of being silently discarded',async()=>{
+ const result=await context.readSony({games:[game('a')],isCurrent:()=>true,progress(){},request:async value=>{throw Error(new URL(value).origin==='https://m.np.playstation.com'?'NO_TOKEN':'HTTP_503');}});
+ assert.equal(result.dateSync.webPlayedError,'HTTP_503');
+ const normalized=library({...lib([game('a')]),dateSync:plain(result.dateSync)});
+ assert.equal(normalized.dateSync.webPlayedError,'HTTP_503');
+ assert.match(catalogSortSummary([{name:'Game'}],'lastPlayedAt',normalized.dateSync),/HTTP 503/);
+});
+test('Sony acquisition order survives a merge independently of existing map insertion order',()=>{
+ const previous=library(lib([{...game('older'),conceptId:'1',name:'A'},{...game('newer'),conceptId:'2',name:'Z'}]));
+ const incoming={...lib([{...game('newer'),conceptId:'2',name:'Z'},{...game('older'),conceptId:'1',name:'A'}]),acquisitionOrder:['newer','older'],dateSync:{acquired:'unavailable',acquiredError:'NO_TOKEN'}};
+ const merged=mergeLibrary(previous,incoming);
+ assert.deepEqual(merged.games.map(game=>game.entitlementId),['older','newer']);
+ assert.deepEqual(merged.acquisitionOrder,['newer','older']);
+ const cards=unifiedCatalog(merged,emptyPersonal(),emptyHistory(),{records:{}}),unknown={key:'unknown',name:'Unknown',acquisitionRank:null};cards.push(unknown);
+ const options=catalogSortPlan(cards,'acquiredAt');assert.equal(options.useAcquisitionOrder,true);
+ assert.deepEqual([...cards].sort((a,b)=>compareCatalog(a,b,{field:'acquiredAt',direction:'desc',...options})).map(c=>c.name),['Z','A','Unknown']);
+ assert.deepEqual([...cards].sort((a,b)=>compareCatalog(a,b,{field:'acquiredAt',direction:'asc',...options})).map(c=>c.name),['A','Z','Unknown']);
+ assert.match(catalogSortSummary(cards,'acquiredAt'),/2 款依 Sony 取得順序/);
+ assert.equal(cards.every(card=>!card.acquiredAt),true);
+});
+test('acquisition-order metadata rejects duplicates, foreign IDs and incomplete snapshots',()=>{
+ const base=lib([game('a')]);
+ for(const acquisitionOrder of [['a','a'],['foreign'],[1]])assert.equal(library({...base,acquisitionOrder}).acquisitionOrder,undefined);
+ assert.equal(library({...base,complete:false,acquisitionOrder:['a']}).acquisitionOrder,undefined);
+ assert.deepEqual(library({...base,acquisitionOrder:['a']}).acquisitionOrder,['a']);
 });

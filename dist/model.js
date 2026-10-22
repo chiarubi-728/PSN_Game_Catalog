@@ -44,8 +44,9 @@ export function library(input) {
   }
   const dateSync={};
   for(const key of ['acquired','played'])if(['complete','partial','unavailable'].includes(input.dateSync?.[key]))dateSync[key]=input.dateSync[key];
-  for(const key of ['acquiredError','playedError'])if(/^(?:HTTP_\d{3}|NETWORK|TIMEOUT|FORMAT_CHANGED|PARTIAL|STOPPED|NO_TOKEN|UNAVAILABLE)$/.test(input.dateSync?.[key]||''))dateSync[key]=input.dateSync[key];
-  return {schemaVersion:1, scope:'active-ps4-ps5-digital-entitlements', complete:input.complete, syncedAt:typeof input.syncedAt === 'string' ? input.syncedAt : null, games,...(account?{account}:{}),...(input.playActivity!==undefined?{playActivity:readPlayActivity(input.playActivity)}:{}),...(Object.keys(dateSync).length?{dateSync}:{})};
+  for(const key of ['acquiredError','playedError','webPlayedError'])if(/^(?:HTTP_\d{3}|NETWORK|TIMEOUT|FORMAT_CHANGED|PARTIAL|STOPPED|NO_TOKEN|UNAVAILABLE|GRAPHQL_ERROR|NO_DATA)$/.test(input.dateSync?.[key]||''))dateSync[key]=input.dateSync[key];
+  const acquisitionOrder=Array.isArray(input.acquisitionOrder)&&input.complete&&input.acquisitionOrder.length<=10000&&new Set(input.acquisitionOrder).size===input.acquisitionOrder.length&&input.acquisitionOrder.every(id=>typeof id==='string'&&ids.has(id))?[...input.acquisitionOrder]:null;
+  return {schemaVersion:1, scope:'active-ps4-ps5-digital-entitlements', ...(acquisitionOrder?{acquisitionOrder}:{}),complete:input.complete, syncedAt:typeof input.syncedAt === 'string' ? input.syncedAt : null, games,...(account?{account}:{}),...(input.playActivity!==undefined?{playActivity:readPlayActivity(input.playActivity)}:{}),...(Object.keys(dateSync).length?{dateSync}:{})};
 }
 export function assertCatalogAccount(data,expectedProfile){
   const profiles=[data.library?.account?.profile,data.history?.profile,expectedProfile].filter(Boolean).map(historyProfile);

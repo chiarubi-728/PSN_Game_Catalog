@@ -38,13 +38,14 @@ export function unifiedCatalog(library,personal,history,storeNames){
       if(!target.imageUrl&&entry.imageUrl)target.imageUrl=entry.imageUrl;
     }
   }
-  const sourceRanks=new Map();
+  const sourceRanks=new Map(),acquisitionRanks=new Map((library.acquisitionOrder||[]).map((id,index)=>[id,index]));
   for(const provider of ['psnprofiles','sony'])for(const [index,game] of (history?.sources?.[provider]?.games||[]).entries())sourceRanks.set(provider+':'+game.id,index+(provider==='sony'?100000:0));
   const localized=localizeCatalogNames(cards.map(card=>{
     // Sony is the primary progress source when both providers report a set.
     const preferred=card.historyEntries.find(entry=>entry.provider==='sony'&&entry.progress!==null)||card.historyEntries.find(entry=>entry.progress!==null)||card.historyEntries[0];
     const ranks=card.historyEntries.map(entry=>sourceRanks.get(entry.provider+':'+entry.id)).filter(Number.isFinite);
-    return {...card,acquiredAt:extremeDate(card.digitalMembers.map(game=>game.acquiredAt),false),lastPlayedAt:extremeDate(card.digitalMembers.map(game=>game.lastPlayedAt)),lastTrophyAt:extremeDate(card.historyEntries.map(entry=>entry.lastTrophyAt)),sourceOrder:ranks.length?Math.min(...ranks):null,progress:preferred?.progress??null,earnedTotal:preferred?.earnedTotal??null,definedTotal:preferred?.definedTotal??null,names:[...new Set([...card.members.map(g=>g.name),...(card.officialNames||[]),...card.historyEntries.map(g=>g.name)])],sources:[...(card.digitalMembers.length?['digital']:[]),...new Set(card.historyEntries.map(g=>g.provider))]};
+    const acquisitionPositions=card.digitalMembers.map(game=>acquisitionRanks.get(game.entitlementId)).filter(Number.isSafeInteger);
+    return {...card,acquisitionRank:acquisitionPositions.length?Math.max(...acquisitionPositions):null,acquiredAt:extremeDate(card.digitalMembers.map(game=>game.acquiredAt),false),lastPlayedAt:extremeDate(card.digitalMembers.map(game=>game.lastPlayedAt)),lastTrophyAt:extremeDate(card.historyEntries.map(entry=>entry.lastTrophyAt)),sourceOrder:ranks.length?Math.min(...ranks):null,progress:preferred?.progress??null,earnedTotal:preferred?.earnedTotal??null,definedTotal:preferred?.definedTotal??null,names:[...new Set([...card.members.map(g=>g.name),...(card.officialNames||[]),...card.historyEntries.map(g=>g.name)])],sources:[...(card.digitalMembers.length?['digital']:[]),...new Set(card.historyEntries.map(g=>g.provider))]};
   }),storeNames);
   for(const activity of readPlayActivity(library.playActivity)){
     const exact=localized.filter(card=>card.digitalMembers.some(game=>gameTitleId(game)===activity.titleId));

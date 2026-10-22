@@ -11,7 +11,7 @@ import {catalogSearchKey,matchesCatalogSearch} from './catalog-search.js';
 import {initCloudSync} from './cloud-sync.js';
 import {progressRange,matchesBrowseFilters} from './browse-filters.js';
 import {categoryPopover} from './category-popover.js';
-import {compareCatalog,dateSorts} from './catalog-sort.js';
+import {compareCatalog,dateSorts,catalogSortPlan,catalogSortSummary} from './catalog-sort.js';
 import {dateValue,displayDate} from './dates.js';
 
 const $ = id => document.getElementById(id), KEY = 'ps-game-base.v1', RELEASE_BACKUP_KEY='ps-game-base.before-date-sorting.7a41046';
@@ -137,14 +137,12 @@ function render(){
  if([...$('batch-category').options].some(item=>item.value===batchChoice))$('batch-category').value=batchChoice;
  const filtered=games.filter(game=>{const r=retainedRecords.get(game.key)||record(game.key);return (!platformFilters.size||game.platforms.some(platform=>platformFilters.has(platform)))&&(!category||(includeIgnored||r.status!=='不再遊玩')&&r.categories.includes(category))&&catalogView(game,r,view==='unorganized'?'all':view,{includeIgnored})&&(!excludeOrganized||catalogView(game,r,'unorganized'))&&matchesBrowseFilters(game,r,{marks:classificationFilters,categories:customCategoryFilters,progress})&&(!query||matchesCatalogSearch([...game.names,...(r.titleAliases||[])],query));});
  eligible=new Set(filtered.map(game=>game.key));for(const id of [...selected])if(!eligible.has(id))selected.delete(id);
- filtered.sort((a,b)=>compareCatalog(a,b,{field:sortField,direction:sortDirection}));
+ const sortPlan=catalogSortPlan(filtered,sortField);
+ filtered.sort((a,b)=>compareCatalog(a,b,{field:sortField,direction:sortDirection,...sortPlan}));
  $('sort-direction').querySelector('[value="asc"]').textContent=sortField==='name'?'名稱正序':'舊到新';
  $('sort-direction').querySelector('[value="desc"]').textContent=sortField==='name'?'名稱反序':'新到舊';
  $('sort-info').hidden=sortField==='name';
- if(sortField!=='name'){
-   const count=filtered.filter(game=>dateValue(game[sortField])).length;
-   $('sort-info').textContent=dateSorts[sortField]+'：'+count+' / '+filtered.length+' 款有日期，沒有日期的排在最後。'+(!count?'可更新整合腳本後重新同步；來源未提供的日期會留空。':'');
- }
+ if(sortField!=='name')$('sort-info').textContent=catalogSortSummary(filtered,sortField,state.library.dateSync);
  const pages=Math.max(1,Math.ceil(filtered.length/48));page=Math.min(page,pages);shown=filtered.slice((page-1)*48,page*48);
  $('grid').replaceChildren();$('empty').hidden=filtered.length>0;
  $('empty').querySelector('h2').textContent=games.length?(query?'找不到符合搜尋的遊戲':platformFilters.size?'這個平台目前沒有遊戲':'這個分類目前沒有遊戲'):'數位擁有與所有遊玩紀錄，整理在一起。';
@@ -156,7 +154,7 @@ function render(){
   const check=el('input');check.type='checkbox';check.className='card-check';check.checked=selected.has(id);check.setAttribute('aria-label','選取 '+g.name+' · '+g.platforms.join(' / '));check.onchange=()=>{check.checked?selected.add(id):selected.delete(id);renderBatch();};art.append(check);
   art.append(quickClassifications(g,r));art.append(el('span',g.platforms.join(' · ')||'PS','platform-badge'));card.append(art);
   const body=el('div',undefined,'card-body'),title=el('button',g.name+' · '+g.platforms.join(' / '),'game-title');title.onclick=()=>edit(g);body.append(title);
-  if(sortField!=='name')body.append(el('p',dateSorts[sortField]+' · '+displayDate(g[sortField]),'card-date'));
+  if(sortField!=='name')body.append(el('p',sortPlan.useAcquisitionOrder&&Number.isSafeInteger(g.acquisitionRank)&&!dateValue(g.acquiredAt)?'取得日期未提供 · 已依 Sony 順序排列':dateSorts[sortField]+' · '+displayDate(g[sortField]),'card-date'));
   if(g.platinum||personalPlatinum(r)){const marker=el('span',undefined,'card-classification'),label=g.platinum?'已取得白金':'個人白金標記';marker.dataset.tone='platinum';marker.title=label;marker.setAttribute('role','img');marker.setAttribute('aria-label',label);marker.append(icon('trophy'));card.classList.add('has-classification');card.append(marker);}
   const plusMembers=g.digitalMembers.filter(member=>member.membership==='PS_PLUS');
   if(plusMembers.length){const badge=el('span',undefined,'ps-plus-badge'),historical=plusMembers.every(member=>missing.has(member.entitlementId));badge.title=historical?'歷史 PS Plus 授權（未出現在最近完整同步）':'授權來源：PS Plus';badge.dataset.historical=String(historical);badge.setAttribute('role','img');badge.setAttribute('aria-label',badge.title);badge.append(icon('ps-plus'));card.classList.add('has-ps-plus');card.append(badge);}
@@ -320,7 +318,7 @@ unifiedSync=initUnifiedSync({historySync,getState:()=>state,isDemo:()=>demo,isBl
  saveLibrary:(raw,profile)=>{
   if(demo||writesBlocked())throw Error('目前無法儲存，請先處理資料保存提示。');
   const incoming=library(raw);if(!incoming.complete)throw Error('數位遊戲庫尚未完整讀取，未套用部分結果。');
-  if(!incoming.account||incoming.account.profile.toLowerCase()!==profile.toLowerCase())throw Error('尚未在 Sony 分頁確認正確帳號。請更新整合腳本至 v0.3.4，重新整理來源頁後重試。');
+  if(!incoming.account||incoming.account.profile.toLowerCase()!==profile.toLowerCase())throw Error('尚未在 Sony 分頁確認正確帳號。請更新整合腳本至 v0.3.5，重新整理來源頁後重試。');
   assertCatalogAccount({library:incoming,history:state.history},profile);
   if(!commitState({...state,library:mergeLibrary(state.library,incoming)}))throw Error('儲存失敗，已停止同步；請保留資料並重試。');
   resetBrowsing();selected.clear();render();return incoming.games.length;

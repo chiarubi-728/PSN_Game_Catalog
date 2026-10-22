@@ -58,3 +58,17 @@ v0.3.3 新增 Tampermonkey 本輪專用回報通道，管理頁先完成註冊�
 驗證：13 項新增測試通過，含真正第二頁與重複分頁停止、舊備份相容、歧義配對、取消與輔助來源失敗；28 個 JS 語法／模組／HTML 檢查通過。IAB 使用獨立 4187 來源與人工三款資料，確認三種排序、雙向未知最後、日期覆蓋數、重新載入、詳細日期、更新前副本下載，無 console error。未連線到使用者真實 Sony／PSNProfiles 帳號，需使用者更新後同步確認日期覆蓋率。
 
 全套原本 65 項中 29 項失敗，加入本次測試後仍為同樣 29 項：3 項舊白金配對預期與 26 項已不符合多閉包腳本結構的 VM 測試鉤點。已從修改前 ZIP 另解出基準執行，失敗名稱集合一致；沒有把它們算成全通過。測試報告與人工資料留本機 work/archive/2026-10-22，不部署。
+
+## 2026-10-22：日期皆零的實際備份（v0.3.5）
+
+使用者更新並重新同步 v0.3.4 後，實際備份有 594 筆授權，acquiredError／playedError 均為 NO_TOKEN，playActivity 為空，76 筆獎盃日期仍在。可證實不是排序 comparator 失效；目前 Sony 網頁工作階段沒有 mobile API 所需 Bearer。上一版 getUserGameList 備援另用 limit 1000，參考實作明列最大 100；而且 catch 丟掉備援錯誤，因此不能由這份備份判斷備援的實際 HTTP／GraphQL 原因。
+
+修正：網頁近期遊玩 limit 改為 100，使用既有 cookie session，保留安全 webPlayedError（NO_DATA、HTTP、GRAPHQL_ERROR 等）並在零日期摘要顯示原因。回報與 JSON 匯出增加完整 ACTIVE_DATE desc 查詢的 acquisitionOrder 授權 ID 陣列，格式驗證拒絕重複、陌生 ID、不完整快照；不以 mergeLibrary 的既有 Map 插入次序代替。日期不足時取得排序改用這份順序，同一卡多筆授權取最早的順位，無順序排最後，畫面明確說明沒有確切日期。已知日期仍保留，從不以序號或同步時間偽造日期。
+
+備份：outputs/backups/20261022-sony-date-fix/before-sony-date-fix-785233f.zip；使用者提供的當前備份僅另存本機 current-library-before-fix.json，不進公開 Git。原網站更新前副本鍵保留，不再覆寫。v0.3.5 需更新腳本並重新整理主頁／Sony 來源，進階「只更新數位授權」可重試這兩項，獎盃日期不受影響。沒有新增權限或改動 Google 設定。
+
+17 項日期測試通過，新增 4 項涵蓋無 Bearer 的網頁備援、100 筆上限、安全錯誤保存與摘要、取得順序合併／雙向排序及非法順序。28 個 JS 靜態檢查通過。仍無使用者 Sony 登入工作階段，不能宣稱真實近期遊玩 API 已成功；limit 100 修正待使用者同步實測。
+
+來源：PSN API getRecentlyPlayedGames.ts 與 operationHashes.ts 確認回應欄位及近期查詢結構；FriendsOfGalaxy/galaxy-integration-psn src/psn_client.py 明列 DEFAULT_LIMIT=100 為最大值。手機 API 對照 PSNAWP GameEntitlements；僅作輔助，不要求使用者提供憑證。
+
+本輪瀏覽器驗收：獨立 localhost:4187 人工資料，零日期但有取得順序時正反排序生效，無順序最後，HTTP 503 安全提示顯示，console 無 error。真實備份解析前後授權 594、遊玩 213、獎盃日期 76、personal JSON 完全一致。全套 82 項中 53 通過、29 失敗，失敗名稱集合與最初基準一致，沒有新增失敗。
