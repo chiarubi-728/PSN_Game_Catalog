@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PSN Game Catalog
 // @namespace    personal.ps-game-base
-// @version      0.3.6
+// @version      0.3.7
 // @description  線上整合數位遊戲庫、PSNProfiles 全部遊玩紀錄與 Sony 官方中英文名稱。
 // @match        https://library.playstation.com/*
 // @match        https://store.playstation.com/*
@@ -182,6 +182,100 @@ const psgbHistoryRelay=(() => {
   };
 })();
 
+// Only this run's normalized library data crosses the local extension mailbox.
+// Sony credentials stay in source-tab memory and never enter these records.
+const psgbSonyRelay=(()=>{
+  const prefix='psgb.sony-relay.v1.',lifetime=15*60*1000,sourceOrigin='https://library.playstation.com';
+  const sessionPattern=/^[a-f0-9-]{36}$/i,profilePattern=/^[A-Za-z0-9_-]{1,32}$/;
+  const allowed=new Set(['https://chiarubi-728.github.io','http://127.0.0.1:4175','http://localhost:4175']);
+  const manager=location.origin==='https://chiarubi-728.github.io'&&location.pathname.startsWith('/PSN_Game_Catalog/')||['http://127.0.0.1:4175','http://localhost:4175'].includes(location.origin);
+  const supported=typeof GM_getValue==='function'&&typeof GM_setValue==='function'&&typeof GM_deleteValue==='function'&&typeof GM_listValues==='function'&&typeof GM_addValueChangeListener==='function'&&typeof GM_removeValueChangeListener==='function';
+  const key=(session,part)=>prefix+session+'.'+part,types=new Set(['PSGB_STATUS','PSGB_RESULT','PSGB_ERROR','PSGB_MOVING']);
+  const valid=request=>request&&allowed.has(request.managerOrigin)&&request.sourceOrigin===sourceOrigin&&profilePattern.test(request.profile||'')&&Number.isFinite(request.expiresAt)&&request.expiresAt>Date.now()&&request.expiresAt<=Date.now()+lifetime;
+  function erase(session){for(const part of ['request','message','control'])GM_deleteValue(key(session,part));}
+  function nextUrl(raw,request){
+    try{
+      const url=new URL(raw),params=new URLSearchParams(url.hash.slice(1));
+      return url.origin==='https://psnprofiles.com'&&!url.username&&!url.password&&!url.search&&url.pathname.toLowerCase()===('/'+request.profile).toLowerCase()&&params.get('psgbOrigin')===request.managerOrigin&&sessionPattern.test(params.get('psgbSession')||'')&&params.get('psgbHistory')==='1'?url.href:null;
+    }catch{return null;}
+  }
+  if(manager){
+    const jobs=new Map();
+    function release(session){const job=jobs.get(session);if(!job)return;jobs.delete(session);clearTimeout(job.timer);clearTimeout(job.releaseTimer);GM_removeValueChangeListener(job.listener);erase(session);}
+    if(supported)try{
+      for(const name of GM_listValues()){
+        if(!name.startsWith(prefix)||!name.endsWith('.request'))continue;
+        const session=name.slice(prefix.length,-8);if(!sessionPattern.test(session))continue;
+        const request=GM_getValue(name);if(!valid(request))erase(session);else setTimeout(()=>erase(session),request.expiresAt-Date.now());
+      }
+    }catch{}
+    window.addEventListener('message',event=>{
+      if(event.origin!==location.origin||(event.source!==window&&event.source!==(typeof unsafeWindow==='undefined'?window:unsafeWindow)))return;
+      const data=event.data;if(!sessionPattern.test(data?.session||''))return;
+      const reply=(type,extra)=>window.postMessage({type,session:data.session,...extra},location.origin);
+      if(data.type==='PSGB_SONY_RELAY_START'){
+        if(!supported||!profilePattern.test(data.profile||'')){reply('PSGB_SONY_RELAY_READY',{available:false});return;}
+        try{
+          if(jobs.has(data.session))release(data.session);if(jobs.size>=4)throw Error('Too many runs');erase(data.session);
+          const request={managerOrigin:location.origin,sourceOrigin,profile:data.profile,expiresAt:Date.now()+lifetime};
+          const job={request,listener:null,timer:null,releaseTimer:null,hasResult:false,next:null};jobs.set(data.session,job);
+          job.listener=GM_addValueChangeListener(key(data.session,'message'),(_name,_old,message)=>{
+            if(jobs.get(data.session)!==job||!valid(request)||message?.session!==data.session||message.sourceOrigin!==sourceOrigin||!types.has(message.type))return;
+            GM_deleteValue(key(data.session,'message'));
+            if(message.type==='PSGB_MOVING'){
+              if(!job.next||message.url!==job.next)return;reply('PSGB_SONY_RELAY_MOVED',{available:true});release(data.session);return;
+            }
+            if(message.type==='PSGB_RESULT')job.hasResult=true;
+            window.postMessage({type:'PSGB_SONY_RELAY_MESSAGE',session:data.session,sourceOrigin,message},location.origin);
+          });
+          job.timer=setTimeout(()=>release(data.session),lifetime);GM_setValue(key(data.session,'request'),request);reply('PSGB_SONY_RELAY_READY',{available:true});
+        }catch{try{release(data.session);}catch{}reply('PSGB_SONY_RELAY_READY',{available:false});}
+      }else if(data.type==='PSGB_SONY_RELAY_NEXT'){
+        const job=jobs.get(data.session),url=job&&nextUrl(data.url,job.request);
+        if(!job||!valid(job.request)||!job.hasResult||!url){reply('PSGB_SONY_RELAY_MOVED',{error:'無法交接到獎盃來源，請回遊戲庫重試。'});return;}
+        job.next=url;GM_setValue(key(data.session,'control'),{session:data.session,type:'NEXT',url,saved:true});
+      }else if(data.type==='PSGB_SONY_RELAY_STOP'&&jobs.has(data.session)){
+        if(data.saved){const job=jobs.get(data.session);GM_setValue(key(data.session,'control'),{session:data.session,type:'FINISH',saved:true});job.releaseTimer=setTimeout(()=>release(data.session),2000);}
+        else release(data.session);
+      }
+    });
+    window.addEventListener('pagehide',()=>{for(const session of [...jobs.keys()])try{release(session);}catch{}});
+  }
+  return {supported,source({onSaved}={}){
+    if(!supported||location.origin!==sourceOrigin)return null;
+    try{
+      const params=new URLSearchParams(location.hash.slice(1)),hint=params.get('psgbSession'),origin=params.get('psgbOrigin');
+      let session,request;
+      if(hint||origin){
+        if(!sessionPattern.test(hint||''))return null;
+        const candidate=GM_getValue(key(hint,'request'));if(!valid(candidate)||candidate.managerOrigin!==origin)return null;session=hint;request=candidate;
+      }else{
+        // Sony can discard fragments during login. Recover only an unambiguous
+        // pending run; never select one arbitrarily when several managers wait.
+        const candidates=[];
+        for(const name of GM_listValues()){
+          if(!name.startsWith(prefix)||!name.endsWith('.request'))continue;
+          const id=name.slice(prefix.length,-8),candidate=GM_getValue(name);if(sessionPattern.test(id)&&valid(candidate))candidates.push({session:id,request:candidate});
+        }
+        if(candidates.length!==1)return null;({session,request}=candidates[0]);
+      }
+      let listener,timer,moving=false,finished=false;
+      const active=()=>{const current=GM_getValue(key(session,'request'));return !finished&&valid(current)&&current.managerOrigin===request.managerOrigin&&current.profile===request.profile&&current.expiresAt===request.expiresAt;};
+      const send=(type,payload={})=>{if(!types.has(type)||!active())return;GM_setValue(key(session,'message'),{...payload,type,session,sourceOrigin,nonce:crypto.randomUUID()});};
+      function dispose(){clearTimeout(timer);if(listener!==undefined){GM_removeValueChangeListener(listener);listener=undefined;}}
+      listener=GM_addValueChangeListener(key(session,'control'),(_name,_old,control)=>{
+        if(control?.session!==session||!active())return;
+        if(control.saved)onSaved?.();
+        if(control.type==='NEXT'&&!moving){const url=nextUrl(control.url,request);if(!url)return;moving=true;send('PSGB_MOVING',{url});dispose();location.href=url;}
+        if(control.type==='FINISH'){finished=true;dispose();}
+      });
+      timer=setTimeout(dispose,request.expiresAt-Date.now());window.addEventListener('pagehide',dispose,{once:true});
+      return {origin:request.managerOrigin,session,profile:request.profile,active,send};
+    }catch{return null;}
+  }};
+})();
+
+
 (() => {
   'use strict';
   if(!['library.playstation.com','store.playstation.com'].includes(location.hostname))return;
@@ -192,11 +286,12 @@ const psgbHistoryRelay=(() => {
   // Add a deployed manager origin here only after you explicitly trust it.
   const MANAGER_ORIGINS = new Set(['http://127.0.0.1:4175', 'http://localhost:4175', 'https://chiarubi-728.github.io']);
   // Only library data crosses the bridge; bearer tokens stay in this tab.
-  let bridge = null, bridgeStarted = false;
+  const relay=psgbSonyRelay.source({onSaved:()=>{message='遊戲庫已確認保存。';render();}});
+  let bridge = relay?{origin:relay.origin,session:relay.session,profile:relay.profile,relay}:null, bridgeStarted = false;
   try {
     const params = new URLSearchParams(location.hash.slice(1));
     const origin = params.get('psgbOrigin'), session = params.get('psgbSession');
-    if (origin && session && /^[a-f0-9-]{36}$/i.test(session) && window.opener && location.hostname === 'library.playstation.com') {
+    if (!bridge && origin && session && /^[a-f0-9-]{36}$/i.test(session) && window.opener && location.hostname === 'library.playstation.com') {
       const target = new URL(origin);
       const profile=params.get('psgbProfile');
       if(target.origin===origin&&MANAGER_ORIGINS.has(origin)&&/^[A-Za-z0-9_-]{1,32}$/.test(profile||''))bridge={origin,session,profile};
@@ -204,7 +299,7 @@ const psgbHistoryRelay=(() => {
   } catch {}
   function sendBridge(type, payload) {
     if (!bridge) return;
-    try { window.opener?.postMessage({type, session:bridge.session, ...payload}, bridge.origin); } catch {}
+    try { if(bridge.relay)bridge.relay.send(type,payload);else window.opener?.postMessage({type, session:bridge.session, ...payload}, bridge.origin); } catch {message='無法回傳遊戲庫，請展開進階並匯出 JSON 保留資料，再回遊戲庫重試。';render();}
   }
   const networkFetch = pageWindow.fetch.bind(pageWindow);
   const diagnostics = { fetch: 0, xhr: 0, graphql: 0, purchased: 0, noBearer: 0, noHash: 0, parseError: 0 };
@@ -375,19 +470,19 @@ const psgbHistoryRelay=(() => {
     if(bridge&&sourceProfile.toLowerCase()!==bridge.profile.toLowerCase()){message='來源帳號與遊戲庫預期帳號不同，未開始讀取。';render();return;}
     if (!queryHash) { message = '尚未取得官方查詢碼。請在官方遊戲庫登入，切到其他分類再切回「已購買」。仍無反應時重新整理該頁。'; render(); return; }
     busy = true; complete = false; syncedAt = ''; games = [];dateSync={};
-    const run=++generation,token=authorization,hash=queryHash;
+    const run=++generation,token=authorization,hash=queryHash,isCurrent=()=>run===generation&&(!bridge?.relay||bridge.relay.active());
     dataAccount={profile:sourceProfile,method:'user',confirmedAt:accountConfirmedAt};
     const seen = new Map(); let offset = 0;
     try {
       for (let count = 0; count < 1000; count++) {
-        if (run !== generation) throw new Error('已停止同步。');
+        if (!isCurrent()) throw new Error('已停止同步。');
         message = `同步中：已讀取 ${games.length} 筆授權，起點 ${offset}…`; render();
         const url = new URL(ENDPOINT);
         url.searchParams.set('operationName', OPERATION);
         url.searchParams.set('variables', JSON.stringify({ isActive: true, platform: ['ps4', 'ps5'], size: 100, start: offset, sortBy: 'ACTIVE_DATE', sortDirection: 'desc' }));
         url.searchParams.set('extensions', JSON.stringify({ persistedQuery: { version: 1, sha256Hash: hash } }));
         const page = await request(url.href, token);
-        if (run !== generation) throw new Error('登入授權已變更或同步已停止，請重新同步。');
+        if (!isCurrent()) throw new Error('登入授權已變更或同步已停止，請重新同步。');
         const next = nextOffset(page, offset, 100);
         let added = 0;
         for (const game of page.games) {
@@ -405,11 +500,10 @@ const psgbHistoryRelay=(() => {
         await new Promise(resolve => setTimeout(resolve, 350));
       }
       if(complete){
-        const dates=await psgbReadSonyDates({games,request:value=>dateRequest(value,token),isCurrent:()=>run===generation,progress:()=>{message='數位授權已讀取，正在補齊取得日期…';render();sendBridge('PSGB_STATUS',{message});}});
-        if(run!==generation)throw Error('已停止同步。');
+        const dates=await psgbReadSonyDates({games,request:value=>dateRequest(value,token),isCurrent,progress:()=>{message='數位授權已讀取，正在補齊取得日期…';render();sendBridge('PSGB_STATUS',{message});}});
+        if(!isCurrent())throw Error('已停止同步。');
         dateSync=dates.dateSync;
-        const acquired=games.filter(game=>game.acquiredAt).length;
-        message='同步完成：'+games.length+' 筆數位授權；取得日期 '+acquired+' 筆。'+(!acquired?'已保留 Sony 取得先後順序；目前登入未提供確切日期。':'');
+        message='已讀取 '+games.length+' 筆數位授權。'+(bridge?'正在回傳遊戲庫…':'');
       }
     } catch (e) { complete=false;message = `${e.message} 目前 ${games.length} 筆為部分結果。`; }
     finally {
@@ -449,7 +543,7 @@ const psgbHistoryRelay=(() => {
   function render() {
     if (!root) return;
     root.querySelector('#status').textContent = message;
-    root.querySelector('#diagnostics').textContent = `v0.3.6 · fetch ${diagnostics.fetch} / XHR ${diagnostics.xhr} / GraphQL ${diagnostics.graphql} / 已購買 ${diagnostics.purchased} / 無 Bearer ${diagnostics.noBearer} / 缺查詢碼 ${diagnostics.noHash} / 格式錯誤 ${diagnostics.parseError} · 操作：${[...operations].join(', ') || '尚未辨識'}${lastParseError ? ` · 最近解析失敗：${lastParseError}` : ''}`;
+    root.querySelector('#diagnostics').textContent = `v0.3.7 · fetch ${diagnostics.fetch} / XHR ${diagnostics.xhr} / GraphQL ${diagnostics.graphql} / 已購買 ${diagnostics.purchased} / 無 Bearer ${diagnostics.noBearer} / 缺查詢碼 ${diagnostics.noHash} / 格式錯誤 ${diagnostics.parseError} · 操作：${[...operations].join(', ') || '尚未辨識'}${lastParseError ? ` · 最近解析失敗：${lastParseError}` : ''}`;
     root.querySelector('#sync').disabled=busy||!queryHash||!accountConfirmedAt;
     root.querySelector('#source-profile').disabled=busy;root.querySelector('#account-confirm').disabled=busy;root.querySelector('#account-confirm').checked=!!accountConfirmedAt;
     root.querySelector('#stop').disabled = !busy;
@@ -477,22 +571,23 @@ const psgbHistoryRelay=(() => {
     host = document.createElement('div'); host.id = 'ps-game-base'; document.documentElement.append(host);
     root = host.attachShadow({ mode: 'closed' });
     const style = el('style', undefined, root);
-    style.textContent = ':host{all:initial;color-scheme:dark;font:14px/1.6 system-ui;color:#eef3ff}button,input,select{font:inherit;padding:7px 10px;border:1px solid #586680;border-radius:7px;color:#eef3ff;background:#24324c}button{cursor:pointer}button:disabled{opacity:.45;cursor:default}#launch{position:fixed;right:20px;bottom:20px;z-index:2147483646;background:#164ca5}#panel{position:fixed;right:16px;bottom:72px;z-index:2147483647;width:min(760px,calc(100vw - 32px));max-height:80vh;overflow:auto;background:#121e33;border:1px solid #60789d;border-radius:14px;padding:18px;box-sizing:border-box;box-shadow:0 10px 60px #0008}#panel[hidden]{display:none}h2{margin:0 0 8px}.controls{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}#status{white-space:pre-wrap;color:#bcd3ff}article{display:flex;gap:12px;border-top:1px solid #34425b;padding:12px 0}article img{width:62px;height:62px;object-fit:cover}p{margin:4px 0}small{display:block;overflow-wrap:anywhere;color:#aab9d2}a{color:#8fc5ff}input{min-width:150px;flex:1}';
+    style.textContent = ':host{all:initial;color-scheme:dark;font:14px/1.6 system-ui;color:#eef3ff}button,input,select{font:inherit;padding:7px 10px;border:1px solid #586680;border-radius:7px;color:#eef3ff;background:#24324c}summary{cursor:pointer;color:#aac5ed}details{margin-top:12px}details[open]{border-top:1px solid #34425b;padding-top:12px}button{cursor:pointer}button:disabled{opacity:.45;cursor:default}#launch{position:fixed;right:20px;bottom:20px;z-index:2147483646;background:#164ca5}#panel{position:fixed;right:16px;bottom:72px;z-index:2147483647;width:min(760px,calc(100vw - 32px));max-height:80vh;overflow:auto;background:#121e33;border:1px solid #60789d;border-radius:14px;padding:18px;box-sizing:border-box;box-shadow:0 10px 60px #0008}#panel[hidden]{display:none}h2{margin:0 0 8px}.controls{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}#status{white-space:pre-wrap;color:#bcd3ff}article{display:flex;gap:12px;border-top:1px solid #34425b;padding:12px 0}article img{width:62px;height:62px;object-fit:cover}p{margin:4px 0}small{display:block;overflow-wrap:anywhere;color:#aab9d2}a{color:#8fc5ff}input{min-width:150px;flex:1}';
     const launch = el('button', 'PSN Game Catalog', root); launch.id = 'launch';
     const panel = el('section', undefined, root); panel.id = 'panel'; panel.hidden = !bridge; panel.setAttribute('aria-label', 'PSN Game Catalog');
     launch.onclick = () => { panel.hidden = !panel.hidden; render(); };
-    el('h2', 'PSN Game Catalog · 遊戲庫 v0.3.6', panel);
-    if (bridge) el('p', `由 ${bridge.origin} 開啟：完整同步後，遊戲資料將自動回傳該管理頁供確認。登入憑證不會回傳。`, panel);
-    el('p', '查詢有效的 PS4／PS5 數位授權，包含免費與 PS Plus，並嘗試讀取取得日期。未包含付款紀錄、實體收藏及遊玩時數。權杖與資料僅暫存本分頁，重新整理即清除。', panel);
+    el('h2', 'PSN Game Catalog · 遊戲庫 v0.3.7', panel);
+    const advanced=el('details',undefined,panel);advanced.id='source-details';el('summary','進階／讀取診斷',advanced);
+    if (bridge) el('p', `由 ${bridge.origin} 開啟：完整同步後，遊戲資料將自動回傳該管理頁供確認。登入憑證不會回傳。`, advanced);
+    el('p', '查詢有效的 PS4／PS5 數位授權，包含免費與 PS Plus，並嘗試讀取取得日期。未包含付款紀錄、實體收藏及遊玩時數。權杖與資料僅暫存本分頁，重新整理即清除。', advanced);
     const library = el('a', '開啟官方遊戲庫（登入後選「已購買」）', panel); library.href = LIBRARY; library.target = '_blank'; library.rel = 'noopener noreferrer';
     const status = el('p', message, panel); status.id = 'status'; status.setAttribute('role', 'status');
-    el('small', undefined, panel).id = 'diagnostics';
+    el('small', undefined, advanced).id = 'diagnostics';
     const accountLabel=el('label','Sony 目前登入的 PSN Online ID',panel);
     const profileInput=el('input',undefined,accountLabel);profileInput.id='source-profile';profileInput.value=sourceProfile;profileInput.maxLength=32;profileInput.placeholder='輸入目前登入的 PSN Online ID';profileInput.readOnly=!!bridge;
     const confirmLabel=el('label',undefined,panel);confirmLabel.style.display='flex';confirmLabel.style.gap='8px';confirmLabel.style.alignItems='center';
     const accountCheck=el('input',undefined,confirmLabel);accountCheck.id='account-confirm';accountCheck.type='checkbox';accountCheck.style.minWidth='0';accountCheck.style.flex='none';
-    el('span','我已核對 PlayStation 右上角的登入帳號，確認與上方 PSN Online ID 相同。',confirmLabel);
-    el('p','帳號確認由你完成，腳本無法自動驗證 Sony 登入者。確認後才會讀取並回傳這個帳號的數位授權。',panel);
+    el('span','我確認 Sony 登入帳號與上方 PSN Online ID 相同。',confirmLabel);
+    el('p','帳號確認由你完成，腳本無法自動驗證 Sony 登入者。確認後才會讀取並回傳這個帳號的數位授權。',advanced);
     profileInput.oninput=()=>{sourceProfile=profileInput.value.trim();accountConfirmedAt='';accountCheck.checked=false;render();};
     accountCheck.onchange=()=>{
       if(accountCheck.checked&&!/^[A-Za-z0-9_-]{1,32}$/.test(sourceProfile)){accountCheck.checked=false;message='請先填寫正確的 PSN Online ID。';render();return;}
@@ -502,16 +597,17 @@ const psgbHistoryRelay=(() => {
     const controls = el('div', undefined, panel); controls.className = 'controls';
     const syncButton = el('button', '同步遊戲庫', controls); syncButton.id = 'sync'; syncButton.onclick = sync;
     const stop = el('button', '停止', controls); stop.id = 'stop'; stop.onclick = () => { generation++; pending?.abort(); };
-    for (const format of ['json', 'csv']) { const b = el('button', `匯出 ${format.toUpperCase()}`, controls); b.dataset.export = format; b.onclick = () => exportData(format); }
-    const clear = el('button', '清除本分頁資料', controls); clear.onclick = () => { generation++; pending?.abort(); authorization='';queryHash='';games=[];complete=false;syncedAt='';accountConfirmedAt='';dataAccount=null; message = '已清除。請切換官方分類再回「已購買」以重新取得授權。'; render(); };
-    const filters = el('div', undefined, panel); filters.className = 'controls';
+    const exportControls=el('div',undefined,advanced);exportControls.className='controls';
+    for (const format of ['json', 'csv']) { const b = el('button', `匯出 ${format.toUpperCase()}`, exportControls); b.dataset.export = format; b.onclick = () => exportData(format); }
+    const clear = el('button', '清除本分頁資料', exportControls); clear.onclick = () => { generation++; pending?.abort(); authorization='';queryHash='';games=[];complete=false;syncedAt='';accountConfirmedAt='';dataAccount=null; message = '已清除。請切換官方分類再回「已購買」以重新取得授權。'; render(); };
+    const filters = el('div', undefined, advanced); filters.className = 'controls';
     const search = el('input', undefined, filters); search.id = 'search'; search.placeholder = '搜尋遊戲名稱'; search.setAttribute('aria-label', '搜尋遊戲名稱'); search.oninput = render;
     for (const [id, options] of [['platform', [['', '全部平台'], ['PS4', 'PS4'], ['PS5', 'PS5']]], ['membership', [['', '全部來源'], ['PS_PLUS', 'PS Plus'], ['NONE', '非 PS Plus']]]]) {
       const select = el('select', undefined, filters); select.id = id; select.setAttribute('aria-label', id === 'platform' ? '平台' : '授權來源');
       for (const [value, label] of options) { const option = el('option', label, select); option.value = value; }
       select.onchange = render;
     }
-    el('p', undefined, panel).id = 'count'; el('div', undefined, panel).id = 'list';
+    el('p', undefined, advanced).id = 'count'; el('div', undefined, advanced).id = 'list';panel.append(advanced);
     render();
     document.addEventListener('keydown', event => { if (event.key === 'Escape') panel.hidden = true; });
   }
@@ -537,7 +633,7 @@ if(location.hostname==='psnprofiles.com'){const initialize=()=>{
   root.append(style);
   const panel = document.createElement('section');root.append(panel);
   function el(tag,text) { const n=document.createElement(tag);n.textContent=text;panel.append(n);return n; }
-  el('h2','PSN Game Catalog · 完整遊玩紀錄 v0.3.6');
+  el('h2','PSN Game Catalog · 完整遊玩紀錄 v0.3.7');
   el('p',bridge ? `將 ${profile} 的全部公開遊戲、獎盃進度與白金狀態傳回 ${origin}。數位版與實體版的遊玩紀錄都會加入主清單，不需逐款配對。` : '請使用全部平台、全部完成狀態並清空搜尋。讀取後可匯出完整遊玩紀錄 JSON，再匯入 Game Base。');
   const status=el('p','準備讀取。');status.setAttribute('role','status');
   const collect=el('button','讀取全部遊戲'), download=el('button','匯出遊玩紀錄 JSON');download.disabled=true;
@@ -699,7 +795,7 @@ if(location.hostname==='psnprofiles.com'){const initialize=()=>{
         games.push({name:title.textContent.trim(),platforms,psnprofilesId:source.id,url:source.url,platinum:earned,progress:progressFor(row),earnedTotal,definedTotal,...(lastTrophyAt?{lastTrophyAt}:{}),...(imageUrl?.startsWith('https://')?{imageUrl}:{}),...(region?{region}:{})});
       }
       if(failed.length){
-        diagnostic={kind:'ps-game-base-psnprofiles-diagnostic',schemaVersion:1,scriptVersion:'0.3.6',profile,createdAt:new Date().toISOString(),stage,expectedTotal,pageCount,totalRows:rows.length,parsedRows:games.length,failedRows:failed.length,samples:failed.slice(0,8)};
+        diagnostic={kind:'ps-game-base-psnprofiles-diagnostic',schemaVersion:1,scriptVersion:'0.3.7',profile,createdAt:new Date().toISOString(),stage,expectedTotal,pageCount,totalRows:rows.length,parsedRows:games.length,failedRows:failed.length,samples:failed.slice(0,8)};
         diagnosticButton.disabled=false;const first=failed[0];throw Error(`已辨識 ${games.length} / ${rows.length} 筆；第 ${first.row} 筆「${first.name||'名稱空白'}」：${first.reasons.join('、')}。請按「匯出讀取診斷」提供檔案；目前未匯入不完整清單。`);
       }
       if(new Set(games.map(g=>g.psnprofilesId)).size!==games.length)throw Error('清單有重複紀錄，請重新整理後再試。');
@@ -709,7 +805,7 @@ if(location.hostname==='psnprofiles.com'){const initialize=()=>{
       send('PSGB_HISTORY_RESULT',{payload:snapshot});download.disabled=false;
       if(bridge)setTimeout(()=>{if(!acknowledged)status.textContent=`已讀取 ${games.length} 筆遊戲，但尚未收到 Game Base 保存確認。可按「匯出遊玩紀錄 JSON」，回遊戲庫匯入。`;},5000);
     } catch(e) {
-      if(!diagnostic){const control=moreControl();diagnostic={kind:'ps-game-base-psnprofiles-diagnostic',schemaVersion:1,scriptVersion:'0.3.6',profile,createdAt:new Date().toISOString(),stage,expectedTotal,pageCount,totalRows:gameRows().length,remaining:remainingGames(control),controlText:controlText(control),samples:[],error:String(e.message).slice(0,600)};}
+      if(!diagnostic){const control=moreControl();diagnostic={kind:'ps-game-base-psnprofiles-diagnostic',schemaVersion:1,scriptVersion:'0.3.7',profile,createdAt:new Date().toISOString(),stage,expectedTotal,pageCount,totalRows:gameRows().length,remaining:remainingGames(control),controlText:controlText(control),samples:[],error:String(e.message).slice(0,600)};}
       diagnosticButton.disabled=false;report(e.message);send('PSGB_HISTORY_ERROR',{message:String(e.message).slice(0,500)});
     } finally {busy=false;collect.disabled=false;}
   }
@@ -787,7 +883,7 @@ if(location.hostname==='psnprofiles.com'){const initialize=()=>{
   window.addEventListener('message',async event=>{
     if(event.origin!==location.origin||(event.source!==window&&event.source!==(typeof unsafeWindow==='undefined'?window:unsafeWindow)))return;
     const data=event.data;if(!data||!/^[a-f0-9-]{36}$/i.test(data.requestId||''))return;
-    if(data.type==='PSGB_CATALOG_PING'){reply(data.requestId,{version:'0.3.6',onlineNames:true});return;}
+    if(data.type==='PSGB_CATALOG_PING'){reply(data.requestId,{version:'0.3.7',onlineNames:true,sonyRelay:psgbSonyRelay.supported});return;}
     if(data.type==='PSGB_CATALOG_CANCEL'){const job=jobs.get(data.requestId);if(job){job.stopped=true;for(const abort of [...job.aborters])abort();}return;}
     if(data.type!=='PSGB_CATALOG_NAMES')return;
     if(jobs.size||!Array.isArray(data.products)||!data.products.length||data.products.length>4||data.products.some(item=>!item||!productPattern.test(item.productId||'')||item.conceptId!==undefined&&!/^\d{1,12}$/.test(item.conceptId))){reply(data.requestId,null,'INVALID_REQUEST');return;}

@@ -115,4 +115,11 @@ main{padding-top:27px}.catalog-header header{align-items:flex-start;gap:18px}.he
 @media(max-width:700px){.catalog-tools .classification-filters,.progress-filter{flex-basis:100%}.progress-filter{gap:6px}.progress-filter .platform-filter-label{flex-basis:100%}}
 
 /* Date sorting follows the same filtered result set. */
-.catalog-sort-controls{display:flex;flex-wrap:wrap;align-items:center;gap:7px;font-size:13px;color:var(--muted)}.catalog-sort-controls select{font-size:13px;min-height:38px;padding:8px}.sort-info{flex-basis:100%;font-size:12px;line-height:1.7;color:var(--muted);margin:0}.card-date{font-size:11px;line-height:1.7;color:#9dacc1;margin:8px 0;overflow-wrap:anywhere}
+.catalog-sort-controls{display:flex;flex-wrap:wrap;align-items:center;gap:7px;font-size:13px;color:var(--muted)}.catalog-sort-controls select{font-size:13px;min-height:38px;padding:8px}.card-date{font-size:11px;line-height:1.7;color:#9dacc1;margin:8px 0;overflow-wrap:anywhere}
+
+/* Stable filter widths: all three states occupy the same space. */
+.catalog-tools .catalog-search{flex:0 1 25ch;width:25ch;max-width:100%;min-width:200px}.catalog-search-controls{position:relative;display:block}.catalog-search-controls input{width:100%;padding-right:36px}.catalog-search-controls input::-webkit-search-cancel-button{-webkit-appearance:none}.catalog-search-controls #clear-search{position:absolute;inset-inline-end:5px;top:50%;transform:translateY(-50%);border:0;background:none;font-size:21px;padding:2px 7px;min-height:30px}
+.platform-chip{display:inline-flex;align-items:center;gap:5px;font-weight:600;white-space:nowrap}.filter-indicator{display:inline-block;min-width:.7em;width:.7em;text-align:center;line-height:1;font-size:15px}.platform-chip[data-filter-state="exclude"]{background:#39232b;border-color:#e28e9b;color:#ffbcc7}.platform-chip[data-filter-state="include"]{background:#263c59;border-color:#89acd9;color:#e2edff}.list-head{justify-content:flex-end}.script-help{border:1px solid #506b91;background:#1d2b40;border-radius:10px;padding:14px;margin:12px 0}.script-help h3{margin-top:0}.script-help p{line-height:1.7}
+@media(max-width:700px){.catalog-tools .catalog-search{flex:0 1 25ch;min-width:0;width:min(25ch,100%)}.platform-filters{gap:6px}.platform-chip{padding:8px 10px}}
+
+.classification-filters .platform-chip[data-filter-state="exclude"]{background:#39232b;border-color:#e28e9b;color:#ffbcc7}.classification-filters .platform-chip[data-filter-state="include"]{background:#263c59;border-color:#89acd9;color:#e2edff}

@@ -78,3 +78,17 @@ v0.3.3 新增 Tampermonkey 本輪專用回報通道，管理頁先完成註冊�
 依使用者要求，資料覆蓋不足的最後遊玩日期不再出現在排序與詳細資料。保留名稱、取得／領取與最後獲得獎盃排序，Sony 取得先後順序備援仍在。腳本刪除 gamelist 與 getUserGameList 請求、對應狀態與匯出新資料；主頁不再做 playActivity 的卡片配對計算。model／dates 舊欄位白名單及 merge 相容保留，現有備份與資料不因功能退役而清除。
 
 更新版號 v0.3.6，同步前最低版號同步更新。操作說明與隱私政策改成現行兩種日期。原始碼備份 outputs/backups/20261022-remove-last-played/before-remove-last-played-ca42842.zip，先前輸出 ZIP 也保留。已調整既有日期測試案例以對應退役功能；本輪未新增或執行測試，只做語法、引用、HTML 靜態檢查與 Git 差異檢查。
+
+## 2026-10-22：八項同步與介面調整（v0.3.7）
+
+使用者完成一輪無痕測試後同意修改八項：Sony 自動帶入 PSN 帳號、讀完自動接下一步、缺腳本安裝提示、平台／標記三段式篩選、移除清除平台／分類、PS3／PS Vita 標籤（無 PC）、收起例行說明／診斷／結果數、縮窄搜尋與欄內 ×。本輪原始碼備份 outputs/backups/20261022-sync-and-filter-ui/before-sync-and-filter-ui-516885f.zip，原輸出 ZIP 也保留。
+
+新增 source-relay.js 與 userscript psgbSonyRelay：主頁先註冊本輪隨機 session、profile、期限，Sony 精確對應或僅唯一有效任務時恢復，密碼／Cookie／Bearer 不進 GM 暫存。Sony 結果經主頁驗證帳號與保存成功才繼續；PSNProfiles 回報通道預先建立後，透過 Sony 原頁執行已驗證的跨站導航，避開 COOP 的 closed／opener 依賴。所有 postMessage 仍檢查來源／隨機 session，來源導航只允許預期 PSNProfiles profile，暫存有大小無關的任務數上限與 15 分鐘期限。多任務無法唯一對應不猜帳號。取消與主頁離開清理。歷史來源仍用原 20 分鐘通道。
+
+篩選使用互斥的 included／excluded Sets，循環 none/include/exclude；排除先剔除，選取同組 OR、各組 AND，自訂分類維持 checkbox 多選；不改 personal 或來源白金。已有忽略預設隱藏政策沿用，只有明確選取忽略時帶出。所有條件進入 browsingContext，避免暫留卡片干擾新篩選。標籤預留 +/- 記號寬度，新增 PS3、PS Vita，移除動態 clear 按鈕；結果數改為讀屏可讀、視覺隱藏。三段式有文字 aria-label，排除使用紅色減號。
+
+安裝提示以腳本未回應為依據，不嘗試列舉擴充功能；附官方 Tampermonkey 與固定腳本安裝 URL，說明啟用及無痕權限。主頁／資料管理刪除冗長說明；Sony 技術資料與匯出等收進 advanced details，帳號勾選與操作錯誤保留。隱私政策補充 Sony 本機暫存用途與清理。沿用存檔鍵與備份、Google 權限／衝突處理不變。
+
+本輪未新增或執行自動化測試。語法、模組與 HTML 靜態檢查之外，會查看人工資料預覽；實際 Sony 登入跳轉及無痕擴充套件交接仍需要使用者更新後確認。
+
+人工預覽補充：使用獨立 127.0.0.1:4189 的五款人工資料（PS5／PS4／PS3／PSVITA），查看 PS5 選取＋白金排除後只顯示非白金 PS5 卡，縮窄搜尋與欄內 ×、隱藏例行長文均已呈現。未安裝腳本的 IAB 點同步後顯示安裝與無痕權限引導，來源空白頁會清理。預覽 console 無 error。沒有連接真實 Sony 或 Google 帳號。預覽匯入先前一次因人工資料漏 favorite／rating 被正確拒絕，已修正該本機範例，不涉及使用者資料。

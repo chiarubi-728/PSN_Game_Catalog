@@ -22,7 +22,7 @@ export function initHistorySync({getState,setHistory,save,render,notice,isDemo,i
         // Extension replies may have a null source; origin and the fresh run
         // session still have to match. Cross-site source messages stay strict.
         if((event.source!==window&&event.source!==null)||event.origin!==location.origin||event.data?.type!=='PSGB_HISTORY_RELAY_READY'||event.data.session!==current.session)return;
-        cleanup();event.data.available?resolve():reject(Error('跨分頁同步尚未就緒。請更新整合腳本至 v0.3.6、同意新增權限，並重新整理遊戲庫後再同步。'));
+        cleanup();event.data.available?resolve():reject(Error('跨分頁同步尚未就緒。請更新整合腳本至 v0.3.7、同意新增權限，並重新整理遊戲庫後再同步。'));
       }
       current.cancelPrepare=()=>{cleanup();reject(Error('已停止等待來源分頁。'));};
       window.addEventListener('message',ready);
@@ -35,7 +35,7 @@ export function initHistorySync({getState,setHistory,save,render,notice,isDemo,i
     writable();const previous=getState().history,next=mergeHistory(previous,snapshot);setHistory(next);
     if(!save()){setHistory(previous);throw Error('儲存失敗，遊玩紀錄未寫入。');}
     render();summary();
-    const text=`已匯入 ${snapshot.games.length} 筆${snapshot.provider==='psnprofiles'?' PSNProfiles':' Sony'}遊玩紀錄，包含 ${snapshot.games.filter(game=>game.platinum).length} 筆白金。所有紀錄已加入主清單。${snapshot.coverage==='platinum'?'這份是舊白金資料；請使用 v0.3.6 整合腳本同步完整清單。':''}`;
+    const text=`已匯入 ${snapshot.games.length} 筆${snapshot.provider==='psnprofiles'?' PSNProfiles':' Sony'}遊玩紀錄，包含 ${snapshot.games.filter(game=>game.platinum).length} 筆白金。所有紀錄已加入主清單。${snapshot.coverage==='platinum'?'這份是舊白金資料；請使用 v0.3.7 整合腳本同步完整清單。':''}`;
     say(text);notice(text);pending=null;$('history-account-confirm').hidden=true;
   }
   function receive(raw,expected){
@@ -44,7 +44,7 @@ export function initHistorySync({getState,setHistory,save,render,notice,isDemo,i
     commit(snapshot);return true;
   }
   for(const id of ['platinum-open','platinum-settings','sony-open','sony-settings'])if($(id))$(id).onclick=open;
-  function start({child:existingChild,onComplete,onError,onStatus,profile:requestedProfile}={}){
+  function start({child:existingChild,navigate,onComplete,onError,onStatus,profile:requestedProfile}={}){
     let started=false;
     try{
       writable();if(bridge)throw Error('正在等待來源分頁，請先完成同步或停止等待。');
@@ -52,16 +52,17 @@ export function initHistorySync({getState,setHistory,save,render,notice,isDemo,i
       assertCatalogAccount(getState(),profile);
       if(getState().history?.profile&&getState().history.profile.toLowerCase()!==profile.toLowerCase())throw Error('目前遊玩紀錄屬於不同帳號，請確認帳號後再同步。');
       url.hash=new URLSearchParams({psgbOrigin:location.origin,psgbSession:session,psgbHistory:'1'}).toString();
-      const child=existingChild&&!existingChild.closed?existingChild:window.open('about:blank','_blank');if(!child)throw Error('請允許開啟同步分頁。');
+      const child=navigate?existingChild:existingChild&&!existingChild.closed?existingChild:window.open('about:blank','_blank');if(!child&&!navigate)throw Error('請允許開啟同步分頁。');
       const current={kind:'psnprofiles',child,session,profile,origin:url.origin,onComplete,onError,onStatus,relay:false};bridge=current;$('history-fetch').disabled=true;
       started=true;
       say('正在準備遊玩紀錄的跨分頁回報通道…');
       timer=setTimeout(()=>{const current=bridge;stop();const text='等候遊玩紀錄逾時，已保存的資料保留。請確認整合腳本已更新並完成網站驗證，再重試。';say(text);current?.onError?.(Error(text));},1200000);
       // Register the mailbox before navigation. COOP may sever the old WindowProxy
       // and window.opener, but the userscript can still return this run's history.
-      void prepareRelay(current).then(()=>{
+      void prepareRelay(current).then(async()=>{
         if(bridge!==current)return;
-        current.relay=true;child.location.href=url.href;
+        current.relay=true;if(navigate)await navigate(url.href);else child.location.href=url.href;
+        if(bridge!==current)return;
         say('請在來源分頁完成 PSNProfiles 驗證；整合腳本會自動讀取全部遊戲。');
       }).catch(error=>{
         if(bridge!==current)return;
