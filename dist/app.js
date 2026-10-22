@@ -307,7 +307,7 @@ unifiedSync=initUnifiedSync({historySync,getState:()=>state,isDemo:()=>demo,isBl
  saveLibrary:(raw,profile)=>{
   if(demo||writesBlocked())throw Error('目前無法儲存，請先處理資料保存提示。');
   const incoming=library(raw);if(!incoming.complete)throw Error('數位遊戲庫尚未完整讀取，未套用部分結果。');
-  if(!incoming.account||incoming.account.profile.toLowerCase()!==profile.toLowerCase())throw Error('尚未在 Sony 分頁確認正確帳號。請更新整合腳本至 v0.3.2，重新整理來源頁後重試。');
+  if(!incoming.account||incoming.account.profile.toLowerCase()!==profile.toLowerCase())throw Error('尚未在 Sony 分頁確認正確帳號。請更新整合腳本至 v0.3.3，重新整理來源頁後重試。');
   assertCatalogAccount({library:incoming,history:state.history},profile);
   if(!commitState({...state,library:mergeLibrary(state.library,incoming)}))throw Error('儲存失敗，已停止同步；請保留資料並重試。');
   resetBrowsing();selected.clear();render();return incoming.games.length;

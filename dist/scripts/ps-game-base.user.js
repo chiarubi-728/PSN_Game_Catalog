@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PSN Game Catalog
 // @namespace    personal.ps-game-base
-// @version      0.3.2
+// @version      0.3.3
 // @description  線上整合數位遊戲庫、PSNProfiles 全部遊玩紀錄與 Sony 官方中英文名稱。
 // @match        https://library.playstation.com/*
 // @match        https://store.playstation.com/*
@@ -11,6 +11,12 @@
 // @noframes
 // @grant        unsafeWindow
 // @grant        GM_xmlhttpRequest
+// @grant        GM_getValue
+// @grant        GM_setValue
+// @grant        GM_deleteValue
+// @grant        GM_listValues
+// @grant        GM_addValueChangeListener
+// @grant        GM_removeValueChangeListener
 // @connect      store.playstation.com
 // @sandbox      raw
 // @license      MIT
@@ -19,6 +25,89 @@
 /* Library query/pagination adapted from psn-mcp, Copyright (c) 2026 TMRP.
  * MIT license: see LICENSE in this script's distribution directory.
  */
+// A per-run extension mailbox survives sites that sever window.opener on navigation.
+// Only public PSNProfiles history crosses it; Sony/Google credentials never enter it.
+const psgbHistoryRelay=(() => {
+  'use strict';
+  const prefix='psgb.history-relay.v1.',lifetime=20*60*1000;
+  const sessionPattern=/^[a-f0-9-]{36}$/i,profilePattern=/^[A-Za-z0-9_-]{1,32}$/;
+  const sourceOrigin='https://psnprofiles.com';
+  const allowed=new Set(['http://127.0.0.1:4175','http://localhost:4175','https://chiarubi-728.github.io']);
+  const manager=(location.origin==='https://chiarubi-728.github.io'&&location.pathname.startsWith('/PSN_Game_Catalog/'))||['http://127.0.0.1:4175','http://localhost:4175'].includes(location.origin);
+  const supported=typeof GM_getValue==='function'&&typeof GM_setValue==='function'&&typeof GM_deleteValue==='function'&&typeof GM_listValues==='function'&&typeof GM_addValueChangeListener==='function'&&typeof GM_removeValueChangeListener==='function';
+  const key=(session,part)=>prefix+session+'.'+part;
+  const messageTypes=new Set(['PSGB_HISTORY_STATUS','PSGB_HISTORY_RESULT','PSGB_HISTORY_ERROR']);
+  function erase(session){for(const part of ['request','message','ack'])GM_deleteValue(key(session,part));}
+  if(manager){
+    const jobs=new Map();
+    function release(session){
+      const job=jobs.get(session);if(!job)return;
+      jobs.delete(session);clearTimeout(job.timer);clearTimeout(job.releaseTimer);
+      GM_removeValueChangeListener(job.listener);erase(session);
+    }
+    if(supported){
+      // Interrupted browser sessions are cleaned on the next manager load.
+      try{for(const name of GM_listValues()){
+        if(!name.startsWith(prefix)||!name.endsWith('.request'))continue;
+        const session=name.slice(prefix.length,-'.request'.length);if(!sessionPattern.test(session))continue;
+        const request=GM_getValue(name);
+        if(!request||!Number.isFinite(request.expiresAt)||request.expiresAt<=Date.now()||request.expiresAt>Date.now()+lifetime)erase(session);
+        else setTimeout(()=>erase(session),request.expiresAt-Date.now());
+      }}catch{}
+    }
+    window.addEventListener('message',event=>{
+      if(event.origin!==location.origin||(event.source!==window&&event.source!==(typeof unsafeWindow==='undefined'?window:unsafeWindow)))return;
+      const data=event.data;if(!data||!sessionPattern.test(data.session||''))return;
+      const reply=available=>window.postMessage({type:'PSGB_HISTORY_RELAY_READY',session:data.session,available},location.origin);
+      if(data.type==='PSGB_HISTORY_RELAY_START'){
+        if(!supported||!profilePattern.test(data.profile||'')){reply(false);return;}
+        try{
+          if(jobs.has(data.session))release(data.session);
+          if(jobs.size>=4){reply(false);return;}
+          erase(data.session);
+          const request={managerOrigin:location.origin,sourceOrigin,profile:data.profile,expiresAt:Date.now()+lifetime};
+          const job={request,listener:null,timer:null,releaseTimer:null};jobs.set(data.session,job);
+          job.listener=GM_addValueChangeListener(key(data.session,'message'),(_name,_old,message)=>{
+            if(jobs.get(data.session)!==job||request.expiresAt<=Date.now()||!message||message.session!==data.session||message.sourceOrigin!==sourceOrigin||!messageTypes.has(message.type))return;
+            GM_deleteValue(key(data.session,'message'));
+            window.postMessage({type:'PSGB_HISTORY_RELAY_MESSAGE',session:data.session,sourceOrigin,message},location.origin);
+          });
+          job.timer=setTimeout(()=>release(data.session),lifetime);
+          GM_setValue(key(data.session,'request'),request);reply(true);
+        }catch{try{release(data.session);}catch{}reply(false);}
+      }else if(data.type==='PSGB_HISTORY_RELAY_ACK'&&jobs.has(data.session)){
+        GM_setValue(key(data.session,'ack'),{saved:true,session:data.session});
+      }else if(data.type==='PSGB_HISTORY_RELAY_STOP'&&jobs.has(data.session)){
+        const job=jobs.get(data.session);clearTimeout(job.releaseTimer);
+        if(data.saved)job.releaseTimer=setTimeout(()=>release(data.session),2000);else release(data.session);
+      }
+    });
+    window.addEventListener('pagehide',()=>{for(const session of [...jobs.keys()])try{release(session);}catch{}});
+  }
+  return {
+    source({origin,session,profile,onSaved}){
+      if(!supported||location.origin!==sourceOrigin||!allowed.has(origin)||!sessionPattern.test(session||''))return null;
+      try{
+        const request=GM_getValue(key(session,'request'));
+        if(!request||request.managerOrigin!==origin||request.sourceOrigin!==sourceOrigin||!profilePattern.test(request.profile||'')||request.profile.toLowerCase()!==profile.toLowerCase()||!Number.isFinite(request.expiresAt)||request.expiresAt<=Date.now()||request.expiresAt>Date.now()+lifetime)return null;
+        let listener,timer;
+        const dispose=()=>{clearTimeout(timer);if(listener!==undefined){GM_removeValueChangeListener(listener);listener=undefined;}};
+        listener=GM_addValueChangeListener(key(session,'ack'),(_name,_old,ack)=>{
+          if(ack?.saved&&ack.session===session){dispose();onSaved();}
+        });
+        timer=setTimeout(()=>{dispose();erase(session);},Math.max(0,request.expiresAt-Date.now()));
+        window.addEventListener('pagehide',dispose,{once:true});
+        return {send(type,payload){
+          if(!messageTypes.has(type))return;
+          const active=GM_getValue(key(session,'request'));
+          if(!active||active.managerOrigin!==origin||active.profile!==request.profile||active.expiresAt<=Date.now())return;
+          GM_setValue(key(session,'message'),{...payload,type,session,sourceOrigin,nonce:crypto.randomUUID()});
+        }};
+      }catch{return null;}
+    }
+  };
+})();
+
 (() => {
   'use strict';
   if(!['library.playstation.com','store.playstation.com'].includes(location.hostname))return;
@@ -260,7 +349,7 @@
   function render() {
     if (!root) return;
     root.querySelector('#status').textContent = message;
-    root.querySelector('#diagnostics').textContent = `v0.3.2 · fetch ${diagnostics.fetch} / XHR ${diagnostics.xhr} / GraphQL ${diagnostics.graphql} / 已購買 ${diagnostics.purchased} / 無 Bearer ${diagnostics.noBearer} / 缺查詢碼 ${diagnostics.noHash} / 格式錯誤 ${diagnostics.parseError} · 操作：${[...operations].join(', ') || '尚未辨識'}${lastParseError ? ` · 最近解析失敗：${lastParseError}` : ''}`;
+    root.querySelector('#diagnostics').textContent = `v0.3.3 · fetch ${diagnostics.fetch} / XHR ${diagnostics.xhr} / GraphQL ${diagnostics.graphql} / 已購買 ${diagnostics.purchased} / 無 Bearer ${diagnostics.noBearer} / 缺查詢碼 ${diagnostics.noHash} / 格式錯誤 ${diagnostics.parseError} · 操作：${[...operations].join(', ') || '尚未辨識'}${lastParseError ? ` · 最近解析失敗：${lastParseError}` : ''}`;
     root.querySelector('#sync').disabled=busy||!queryHash||!accountConfirmedAt;
     root.querySelector('#source-profile').disabled=busy;root.querySelector('#account-confirm').disabled=busy;root.querySelector('#account-confirm').checked=!!accountConfirmedAt;
     root.querySelector('#stop').disabled = !busy;
@@ -292,7 +381,7 @@
     const launch = el('button', 'PSN Game Catalog', root); launch.id = 'launch';
     const panel = el('section', undefined, root); panel.id = 'panel'; panel.hidden = !bridge; panel.setAttribute('aria-label', 'PSN Game Catalog');
     launch.onclick = () => { panel.hidden = !panel.hidden; render(); };
-    el('h2', 'PSN Game Catalog · 遊戲庫 v0.3.2', panel);
+    el('h2', 'PSN Game Catalog · 遊戲庫 v0.3.3', panel);
     if (bridge) el('p', `由 ${bridge.origin} 開啟：完整同步後，遊戲資料將自動回傳該管理頁供確認。登入憑證不會回傳。`, panel);
     el('p', '僅查詢有效的 PS4／PS5 數位授權，包含免費與 PS Plus。未包含付款紀錄、實體收藏及遊玩時數。權杖與資料僅暫存本分頁，重新整理即清除。', panel);
     const library = el('a', '開啟官方遊戲庫（登入後選「已購買」）', panel); library.href = LIBRARY; library.target = '_blank'; library.rel = 'noopener noreferrer';
@@ -337,8 +426,10 @@ if(location.hostname==='psnprofiles.com'){const initialize=()=>{
   if (!profile || !document.querySelector('#gamesTable') || document.getElementById('psgb-platinum-collector')) return;
   const params = new URLSearchParams(location.hash.slice(1));
   const origin = params.get('psgbOrigin'), session = params.get('psgbSession');
-  const bridge = !!(allowed.has(origin) && /^[a-f0-9-]{36}$/i.test(session || '') && window.opener);
   let busy = false, snapshot = null, acknowledged=false, diagnostic=null;
+  const saved=()=>{acknowledged=true;status.textContent='Game Base 已確認保存完整遊玩紀錄，可以回到遊戲庫查看。';};
+  const relay=psgbHistoryRelay.source({origin,session,profile,onSaved:saved});
+  const bridge = !!(allowed.has(origin) && /^[a-f0-9-]{36}$/i.test(session || '') && (relay||window.opener));
   const host = document.createElement('div'); host.id = 'psgb-platinum-collector'; document.body.append(host);
   const root = host.attachShadow({mode:'closed'});
   const style = document.createElement('style');
@@ -346,7 +437,7 @@ if(location.hostname==='psnprofiles.com'){const initialize=()=>{
   root.append(style);
   const panel = document.createElement('section');root.append(panel);
   function el(tag,text) { const n=document.createElement(tag);n.textContent=text;panel.append(n);return n; }
-  el('h2','PSN Game Catalog · 完整遊玩紀錄 v0.3.2');
+  el('h2','PSN Game Catalog · 完整遊玩紀錄 v0.3.3');
   el('p',bridge ? `將 ${profile} 的全部公開遊戲、獎盃進度與白金狀態傳回 ${origin}。數位版與實體版的遊玩紀錄都會加入主清單，不需逐款配對。` : '請使用全部平台、全部完成狀態並清空搜尋。讀取後可匯出完整遊玩紀錄 JSON，再匯入 Game Base。');
   const status=el('p','準備讀取。');status.setAttribute('role','status');
   const collect=el('button','讀取全部遊戲'), download=el('button','匯出遊玩紀錄 JSON');download.disabled=true;
@@ -380,7 +471,7 @@ if(location.hostname==='psnprofiles.com'){const initialize=()=>{
       links:[...row.querySelectorAll('a')].slice(0,6).map(link=>({text:link.textContent.trim().slice(0,100),path:publicPath(link.getAttribute('href'))}))};
   }
   diagnosticButton.onclick=()=>{if(diagnostic)saveJson(diagnostic,'ps-game-base-psnprofiles-diagnostic-'+profile+'.json');};
-  function send(type,payload) { if(bridge) window.opener.postMessage({type,session,...payload},origin); }
+  function send(type,payload) { if(!bridge)return;if(relay)relay.send(type,payload);else window.opener?.postMessage({type,session,...payload},origin); }
   function report(message) { status.textContent=message;send('PSGB_HISTORY_STATUS',{message}); }
   const morePattern=/^Show\s+([\d,]+)\s+more\s+games?$/i;
   const controlText=node=>(node?.textContent||'').replace(/\s+/g,' ').trim();
@@ -402,7 +493,7 @@ if(location.hostname==='psnprofiles.com'){const initialize=()=>{
   }
   window.addEventListener('message',event=>{
     if(!bridge||event.source!==window.opener||event.origin!==origin||event.data?.session!==session||event.data.type!=='PSGB_HISTORY_SAVED')return;
-    acknowledged=true;status.textContent='Game Base 已確認保存完整遊玩紀錄，可以回到遊戲庫查看。';
+    saved();
   });
   function progressFor(row){
     const bar=row.querySelector('.progress-bar');
@@ -465,7 +556,7 @@ if(location.hostname==='psnprofiles.com'){const initialize=()=>{
         games.push({name:title.textContent.trim(),platforms,psnprofilesId:source.id,url:source.url,platinum:earned,progress:progressFor(row),earnedTotal,definedTotal,...(imageUrl?.startsWith('https://')?{imageUrl}:{}),...(region?{region}:{})});
       }
       if(failed.length){
-        diagnostic={kind:'ps-game-base-psnprofiles-diagnostic',schemaVersion:1,scriptVersion:'0.3.2',profile,createdAt:new Date().toISOString(),stage,expectedTotal,pageCount,totalRows:rows.length,parsedRows:games.length,failedRows:failed.length,samples:failed.slice(0,8)};
+        diagnostic={kind:'ps-game-base-psnprofiles-diagnostic',schemaVersion:1,scriptVersion:'0.3.3',profile,createdAt:new Date().toISOString(),stage,expectedTotal,pageCount,totalRows:rows.length,parsedRows:games.length,failedRows:failed.length,samples:failed.slice(0,8)};
         diagnosticButton.disabled=false;const first=failed[0];throw Error(`已辨識 ${games.length} / ${rows.length} 筆；第 ${first.row} 筆「${first.name||'名稱空白'}」：${first.reasons.join('、')}。請按「匯出讀取診斷」提供檔案；目前未匯入不完整清單。`);
       }
       if(new Set(games.map(g=>g.psnprofilesId)).size!==games.length)throw Error('清單有重複紀錄，請重新整理後再試。');
@@ -474,7 +565,7 @@ if(location.hostname==='psnprofiles.com'){const initialize=()=>{
       send('PSGB_HISTORY_RESULT',{payload:snapshot});download.disabled=false;
       if(bridge)setTimeout(()=>{if(!acknowledged)status.textContent=`已讀取 ${games.length} 筆遊戲，但尚未收到 Game Base 保存確認。可按「匯出遊玩紀錄 JSON」，回遊戲庫匯入。`;},5000);
     } catch(e) {
-      if(!diagnostic){const control=moreControl();diagnostic={kind:'ps-game-base-psnprofiles-diagnostic',schemaVersion:1,scriptVersion:'0.3.2',profile,createdAt:new Date().toISOString(),stage,expectedTotal,pageCount,totalRows:gameRows().length,remaining:remainingGames(control),controlText:controlText(control),samples:[],error:String(e.message).slice(0,600)};}
+      if(!diagnostic){const control=moreControl();diagnostic={kind:'ps-game-base-psnprofiles-diagnostic',schemaVersion:1,scriptVersion:'0.3.3',profile,createdAt:new Date().toISOString(),stage,expectedTotal,pageCount,totalRows:gameRows().length,remaining:remainingGames(control),controlText:controlText(control),samples:[],error:String(e.message).slice(0,600)};}
       diagnosticButton.disabled=false;report(e.message);send('PSGB_HISTORY_ERROR',{message:String(e.message).slice(0,500)});
     } finally {busy=false;collect.disabled=false;}
   }
@@ -552,7 +643,7 @@ if(location.hostname==='psnprofiles.com'){const initialize=()=>{
   window.addEventListener('message',async event=>{
     if(event.origin!==location.origin||(event.source!==window&&event.source!==(typeof unsafeWindow==='undefined'?window:unsafeWindow)))return;
     const data=event.data;if(!data||!/^[a-f0-9-]{36}$/i.test(data.requestId||''))return;
-    if(data.type==='PSGB_CATALOG_PING'){reply(data.requestId,{version:'0.3.2',onlineNames:true});return;}
+    if(data.type==='PSGB_CATALOG_PING'){reply(data.requestId,{version:'0.3.3',onlineNames:true});return;}
     if(data.type==='PSGB_CATALOG_CANCEL'){const job=jobs.get(data.requestId);if(job){job.stopped=true;for(const abort of [...job.aborters])abort();}return;}
     if(data.type!=='PSGB_CATALOG_NAMES')return;
     if(jobs.size||!Array.isArray(data.products)||!data.products.length||data.products.length>4||data.products.some(item=>!item||!productPattern.test(item.productId||'')||item.conceptId!==undefined&&!/^\d{1,12}$/.test(item.conceptId))){reply(data.requestId,null,'INVALID_REQUEST');return;}

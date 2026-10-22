@@ -69,7 +69,9 @@ export function initUnifiedSync({historySync,getState,saveLibrary,confirmAccount
       say('1 / 3 · 請在來源分頁登入 PlayStation、切到「已購買」，並確認登入帳號為 '+profile+'。');
       run.timer=setTimeout(()=>fail(run,Error('等候數位遊戲庫逾時。請確認整合腳本已安裝，並在官方分頁切到「已購買」，再重試。')),300000);
     }
-    if(active===run&&mode!=='names')run.watcher=setInterval(()=>{if(run.child?.closed)fail(run,Error('來源分頁已關閉，可按「重試未完成步驟」。'));},1500);
+    // History uses a userscript mailbox: cross-site isolation can report the
+    // reused tab as closed even while PSNProfiles is loading in that same tab.
+    if(active===run&&mode!=='names')run.watcher=setInterval(()=>{if(run.stage==='digital'&&run.child?.closed)fail(run,Error('來源分頁已關閉，可按「重試未完成步驟」。'));},1500);
   }
   window.addEventListener('message',event=>{
     const run=active;
