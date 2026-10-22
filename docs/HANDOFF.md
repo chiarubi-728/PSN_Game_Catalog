@@ -6,6 +6,7 @@
 
 - 儲存庫：[chiarubi-728/PSN_Game_Catalog](https://github.com/chiarubi-728/PSN_Game_Catalog)，分支 `main`。
 - 網站：[PSN Game Catalog](https://chiarubi-728.github.io/PSN_Game_Catalog/)。
+- 2026-10-23 依使用者要求移除遊戲庫 index.html 原本沿用的 noindex／nofollow，允許搜尋引擎收錄；Search Console 驗證標記保留。sony-launch.html 是同步轉接頁，仍維持 noindex。
 - 公開首頁：[Rubi’s Cluttered Corner](https://chiarubi-728.github.io/)，另由 `chiarubi-728.github.io` 儲存庫的 main 根目錄發布。首頁整合卡蒂狗・風速狗圖鑑、App 停用入口與 PSN 遊戲庫；Google 資料用途區塊明確限定 PSN Game Catalog。詳細資料說明已移到總站 privacy.html／terms.html，完整包含 PSN 政策；首頁、遊戲庫與介紹頁主要連結同步更新。原專屬政策與 about.html 仍保留，遊戲庫網址不變。總站 PSN 政策與原專屬內容需持續同步維護。Google Console 首頁設定與重新提交由使用者處理；新增首頁不代表驗證已通過。
 - 操作看 [使用說明](使用說明.md)，目錄與指令看 [維護指南](MAINTENANCE.md)。
 - 歷次修正及回復資訊已移至 [開發紀錄](history/2026-10-22-development-notes.md)。
