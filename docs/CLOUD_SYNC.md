@@ -16,7 +16,9 @@ Google Drive 同步為選用功能。網站已提供公開 OAuth Client ID，直
 
 由專案擁有者在 Google Cloud 專案啟用 Google Drive API、設定 OAuth 同意畫面，並建立類型為「網頁應用程式」的 OAuth Client ID。將正式來源 https://chiarubi-728.github.io 加入 Authorized JavaScript origins。本機預覽使用的來源也需另行加入，例如 http://localhost:4180。OAuth 應用程式仍在測試狀態時，需將使用者加入測試名單。
 
-網站「雲端設定 → 復原備份與授權設定」只填公開 Client ID，不需要也不應填 Client Secret。正式網站已將擁有者提供的公開 Client ID 設為 DEFAULT_CLIENT，新裝置直接採用。該欄位改為選填的自訂覆寫，僅自架網站或進階需求使用，覆寫值只存在此瀏覽器；已有有效覆寫不會自動更換，避免無意切換應用程式資料空間。更換 OAuth 應用程式／Google Cloud 專案可能切換 Drive 的應用程式資料空間，需透過完整備份搬移；不要假設更換後仍能讀到參考專案的備份。
+網站直接使用 `dist/cloud-sync.js` 的 `DEFAULT_CLIENT`，介面不顯示 Client ID，也不提供自訂授權設定。一般使用者只需使用 Google 登入並查看同步狀態；「復原備份」仍可匯出版本切換前的資料。自架網站由維護者修改原始碼中的公開 Client ID，不需要也不應加入 Client Secret。
+
+舊版瀏覽器曾保存的自訂 Client ID 不再覆寫網站設定；既有同步基準仍保留 OAuth 應用程式識別。若先前使用其他應用程式，連接時沿用既有版本衝突保護，不直接上傳非空白本機資料。更換 OAuth 應用程式／Google Cloud 專案可能切換 Drive 的應用程式資料空間，需透過完整備份搬移；不要假設更換後仍能讀到原應用程式的備份。
 
 要求的權限只有 Drive 應用程式資料、Google 帳號 ID 與電子郵件。權杖只在記憶體，不寫入 localStorage、備份或 Git。Google sub 與 OAuth 應用程式用來辨識同步基準，避免連接另一個帳號後直接上傳。
 

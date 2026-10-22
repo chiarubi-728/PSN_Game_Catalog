@@ -3,7 +3,6 @@ import {parseImport,library} from './model.js';
 const META='ps-game-base.cloud-auto.v1',RECOVERY='ps-game-base.cloud-recovery.v1';
 // Public OAuth identifier provided by the site owner; users sign in separately.
 const DEFAULT_CLIENT='565579076533-u41tbuhceaeb2ne8qoca7npkecasqkbj.apps.googleusercontent.com';
-const clientPattern=/^\d+-[a-z0-9]+\.apps\.googleusercontent\.com$/i;
 const canonical=value=>JSON.stringify(value,(_,item)=>item&&typeof item==='object'&&!Array.isArray(item)?Object.fromEntries(Object.keys(item).sort().map(key=>[key,item[key]])):item);
 function snapshot(raw){
   if(raw?.kind!=='ps-game-base-backup'||raw.schemaVersion!==1)throw Error('雲端資料不是完整遊戲庫備份，已停止同步。');
@@ -21,7 +20,7 @@ export function initCloudSync({getSnapshot,applySnapshot,isBlocked,isDemo,isEdit
   const $=id=>document.getElementById(id);
   let meta={};
   try{const saved=JSON.parse(localStorage.getItem(META)||'{}');if(saved?.schemaVersion===1)meta=saved;}catch{}
-  let clientId=clientPattern.test(meta.clientId||'')?meta.clientId:DEFAULT_CLIENT;
+  const clientId=DEFAULT_CLIENT;
   let auth,drive,prepared=false,preparing=false,account=null,phase='disconnected',message='',busy=false,dirty=false;
   let revision=0,epoch=0,timer=null,retries=0,conflict=null,lastSync=meta.lastSync||null;
   let connectedOnce=false,cachedRemote=null;
@@ -39,7 +38,6 @@ export function initCloudSync({getSnapshot,applySnapshot,isBlocked,isDemo,isEdit
     $('cloud-connect').disabled=!clientId||busy||preparing||connected||isDemo()||isBlocked();
     $('cloud-now').disabled=!connected||busy||!!conflict||isDemo()||isBlocked();
     $('cloud-disconnect').disabled=!auth?.connected||busy;
-    $('cloud-save-config').disabled=busy||!!auth?.connected;
     $('cloud-conflict').hidden=!conflict;
     $('cloud-use-local').disabled=$('cloud-use-remote').disabled=busy||isDemo()||isBlocked();
     if(conflict)$('cloud-conflict-detail').textContent=conflict.reason+'\n此裝置：'+describe(conflict.local)+'\n雲端：'+(conflict.remote?describe(conflict.remote):'沒有備份')+'\n選擇前會在此瀏覽器保留兩份資料作為復原備份。';
@@ -152,7 +150,7 @@ export function initCloudSync({getSnapshot,applySnapshot,isBlocked,isDemo,isEdit
     }catch(error){notice('無法讀取復原備份：'+error.message);}
   }
   function downloadSnapshot(value,label){const url=URL.createObjectURL(new Blob([JSON.stringify(value,null,2)],{type:'application/json'})),link=document.createElement('a');link.href=url;link.download='ps-game-base-cloud-'+label+'-'+new Date().toISOString().slice(0,10)+'.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),10000);}
-  createAuth();$('cloud-client-id').value=clientId;
+  createAuth();
   $('cloud-connect').onclick=connect;
   $('cloud-now').onclick=()=>{retries=0;void sync();};
   $('cloud-disconnect').onclick=()=>{auth.disconnect();};
@@ -161,17 +159,12 @@ export function initCloudSync({getSnapshot,applySnapshot,isBlocked,isDemo,isEdit
   $('cloud-export-local').onclick=()=>downloadSnapshot(getSnapshot(),'local');
   $('cloud-export-remote').onclick=()=>{if(conflict?.remote)downloadSnapshot(conflict.remote,'remote');else notice('雲端沒有可匯出的備份。');};
   $('cloud-export-recovery').onclick=exportRecovery;
-  $('cloud-save-config').onclick=()=>{
-    const value=$('cloud-client-id').value.trim();if(!clientPattern.test(value))return notice('請輸入有效的 Google 網頁應用程式 Client ID。');
-    try{meta={...meta,schemaVersion:1,clientId:value};localStorage.setItem(META,JSON.stringify(meta));}catch{return notice('無法保存授權設定，請確認瀏覽器儲存空間。');}
-    clientId=value;prepared=false;createAuth();void prepare();notice('授權設定已儲存，準備完成後可連接 Google。');
-  };
   window.addEventListener('online',wake);window.addEventListener('focus',wake);
   document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')wake();else if(dirty)void sync();});
   document.addEventListener('close',()=>{if(!isEditing())wake();},true);
   window.addEventListener('beforeunload',event=>{if(dirty&&(account||meta.owner)||busy){event.preventDefault();event.returnValue='';}});
   setInterval(()=>{if(document.visibilityState==='visible')wake();},30000);
   if(meta.baseline){const initialRevision=revision;void fingerprint(snapshot(getSnapshot())).then(hash=>{if(initialRevision===revision)dirty=hash!==meta.baseline;refresh();}).catch(error=>setPhase('error',error.message));}
-  refresh();if(clientId)void prepare();else setPhase('disconnected','雲端尚未設定 · 請在雲端設定填入自己的 Google Client ID');
+  refresh();void prepare();
   return {changed,refresh};
 }
