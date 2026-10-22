@@ -6,6 +6,7 @@
 
 - 儲存庫：[chiarubi-728/PSN_Game_Catalog](https://github.com/chiarubi-728/PSN_Game_Catalog)，分支 `main`。
 - 網站：[PSN Game Catalog](https://chiarubi-728.github.io/PSN_Game_Catalog/)。
+- 公開首頁：[chiarubi-728.github.io](https://chiarubi-728.github.io/)，另由同名儲存庫的 main 根目錄發布。政策仍連到本專案的正式頁，遊戲庫網址不變。Google Console 首頁設定與重新提交由使用者處理；新增首頁不代表驗證已通過。
 - 操作看 [使用說明](使用說明.md)，目錄與指令看 [維護指南](MAINTENANCE.md)。
 - 歷次修正及回復資訊已移至 [開發紀錄](history/2026-10-22-development-notes.md)。
 

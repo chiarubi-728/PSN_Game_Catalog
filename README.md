@@ -2,7 +2,7 @@
 
 個人的 PlayStation 遊戲整理工具，整合 Sony 數位授權與 PSNProfiles 遊玩、獎盃紀錄，保留自己的分類、標籤與筆記。
 
-**[開啟遊戲庫](https://chiarubi-728.github.io/PSN_Game_Catalog/)** · [應用程式介紹](https://chiarubi-728.github.io/PSN_Game_Catalog/about.html) · [安裝整合腳本](https://chiarubi-728.github.io/PSN_Game_Catalog/scripts/ps-game-base.user.js)
+**[開啟遊戲庫](https://chiarubi-728.github.io/PSN_Game_Catalog/)** · [公開首頁](https://chiarubi-728.github.io/) · [應用程式介紹](https://chiarubi-728.github.io/PSN_Game_Catalog/about.html) · [安裝整合腳本](https://chiarubi-728.github.io/PSN_Game_Catalog/scripts/ps-game-base.user.js)
 
 ## 開始使用
 
