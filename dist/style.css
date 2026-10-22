@@ -124,3 +124,4 @@ main{padding-top:27px}.catalog-header header{align-items:flex-start;gap:18px}.he
 
 .classification-filters .platform-chip[data-filter-state="exclude"]{background:#39232b;border-color:#e28e9b;color:#ffbcc7}.classification-filters .platform-chip[data-filter-state="include"]{background:#263c59;border-color:#89acd9;color:#e2edff}
 .script-help .script-next-step{margin-top:12px}
+.manual-match-help{font-size:13px;line-height:1.9;color:var(--muted);padding-left:20px}.manual-match-help li+li{margin-top:6px}
