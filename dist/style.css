@@ -131,3 +131,7 @@ main{padding-top:27px}.catalog-header header{align-items:flex-start;gap:18px}.he
 .card .card-trophies .trophy-summary{font-size:inherit;line-height:1.6;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .card .card-trophies progress{margin:0}
 @media(max-width:700px){.card-trophies{font-size:12px}}
+
+#categories .category-navigation{display:flex;align-items:center;gap:12px}
+#categories .category-navigation>.classification-icon{width:18px;height:18px;color:inherit}
+#categories .category-navigation-label{float:none;background:none;border-radius:0;padding:0;min-width:0;overflow-wrap:anywhere;text-align:left}
