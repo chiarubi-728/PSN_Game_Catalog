@@ -2,7 +2,7 @@ import {parseImport,library} from './model.js';
 
 const META='ps-game-base.cloud-auto.v1',RECOVERY='ps-game-base.cloud-recovery.v1';
 // Public OAuth identifier provided by the site owner; users sign in separately.
-const DEFAULT_CLIENT='565579076533-u41tbuhceaeb2ne8qoca7npkecasqkbj.apps.googleusercontent.com';
+const DEFAULT_CLIENT='381225452249-909fkf4ottot2mfkpj011ojh4c8lfilg.apps.googleusercontent.com';
 const canonical=value=>JSON.stringify(value,(_,item)=>item&&typeof item==='object'&&!Array.isArray(item)?Object.fromEntries(Object.keys(item).sort().map(key=>[key,item[key]])):item);
 function snapshot(raw){
   if(raw?.kind!=='ps-game-base-backup'||raw.schemaVersion!==1)throw Error('雲端資料不是完整遊戲庫備份，已停止同步。');
