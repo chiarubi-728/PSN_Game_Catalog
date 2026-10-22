@@ -125,3 +125,9 @@ main{padding-top:27px}.catalog-header header{align-items:flex-start;gap:18px}.he
 .classification-filters .platform-chip[data-filter-state="exclude"]{background:#39232b;border-color:#e28e9b;color:#ffbcc7}.classification-filters .platform-chip[data-filter-state="include"]{background:#263c59;border-color:#89acd9;color:#e2edff}
 .script-help .script-next-step{margin-top:12px}
 .manual-match-help{font-size:13px;line-height:1.9;color:var(--muted);padding-left:20px}.manual-match-help li+li{margin-top:6px}
+
+/* Keep the trophy text/bar rows even when there is no played record. */
+.card-trophies{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:1.6em 5px;row-gap:7px;margin:10px 0 11px;font-size:13px;min-width:0}
+.card .card-trophies .trophy-summary{font-size:inherit;line-height:1.6;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.card .card-trophies progress{margin:0}
+@media(max-width:700px){.card-trophies{font-size:12px}}
