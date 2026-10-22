@@ -1,6 +1,7 @@
 import {readHistory,historySnapshot,mergeHistory,emptyHistory,historyProfile} from './history.js';
 import {readStoreNames} from './store-names.js';
 import {dateValue,readPlayActivity,extremeDate} from './dates.js';
+import {readHistoryLinks} from './history-links.js';
 export const statuses = ['未開始', '想玩', '遊玩中', '已破關', '已白金', '暫停', '不再遊玩'];
 // Keep existing stored codes; only these three are offered for new choices.
 export const classificationOptions = [
@@ -74,7 +75,8 @@ export function personal(input) {
   }
   return records;
   }
-  return {schemaVersion:1,kind:'ps-game-base-personal',categories,records:readRecords(input.records),works:readRecords(input.works || {})};
+  const historyLinks=readHistoryLinks(input.historyLinks);
+  return {schemaVersion:1,kind:'ps-game-base-personal',categories,records:readRecords(input.records),works:readRecords(input.works || {}),...(historyLinks.length?{historyLinks}:{})};
 }
 export function blankRecord() { return {status:statuses[0],favorite:false,rating:0,note:'',categories:[],tags:[],updatedAt:''}; }
 export function recordFor(data,id) { return Object.hasOwn(data.records,id) ? data.records[id] : blankRecord(); }

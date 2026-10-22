@@ -124,7 +124,6 @@ main{padding-top:27px}.catalog-header header{align-items:flex-start;gap:18px}.he
 
 .classification-filters .platform-chip[data-filter-state="exclude"]{background:#39232b;border-color:#e28e9b;color:#ffbcc7}.classification-filters .platform-chip[data-filter-state="include"]{background:#263c59;border-color:#89acd9;color:#e2edff}
 .script-help .script-next-step{margin-top:12px}
-.manual-match-help{font-size:13px;line-height:1.9;color:var(--muted);padding-left:20px}.manual-match-help li+li{margin-top:6px}
 
 /* Keep the trophy text/bar rows even when there is no played record. */
 .card-trophies{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:1.6em 5px;row-gap:7px;margin:10px 0 11px;font-size:13px;min-width:0}
@@ -135,3 +134,5 @@ main{padding-top:27px}.catalog-header header{align-items:flex-start;gap:18px}.he
 #categories .category-navigation{display:flex;align-items:center;gap:12px}
 #categories .category-navigation>.classification-icon{width:18px;height:18px;color:inherit}
 #categories .category-navigation-label{float:none;background:none;border-radius:0;padding:0;min-width:0;overflow-wrap:anywhere;text-align:left}
+
+.history-pair-list{max-height:380px;overflow:auto;overscroll-behavior:contain}.history-pair-row{display:flex;align-items:flex-start;flex-wrap:wrap;gap:10px;padding:12px 0;border-top:1px solid var(--line)}.history-pair-row>img{width:56px;height:56px;object-fit:cover;border-radius:5px;flex:none}.history-pair-info{flex:1;min-width:150px;overflow-wrap:anywhere}.history-pair-info strong{font-size:13px}.history-pair-info p{margin:4px 0;font-size:12px;line-height:1.6}.history-pair-actions{display:flex;flex-wrap:wrap;gap:8px;margin-left:auto}.history-pair-row button{font-size:12px;padding:7px 10px}.history-pair-row .pairing-warning{color:#e8bf83}#edit-pairing h4{font-size:13px;margin:16px 0 8px}#pairing-status{color:#b6d2ff}#pairing-status:empty{display:none}#edit-pairing input{width:100%}

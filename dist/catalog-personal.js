@@ -1,4 +1,5 @@
 import {blankRecord,workRecordFor,platformWorkKey,personalPlatinum} from './model.js';
+import {historyPersonalScope} from './history-links.js';
 
 const platformKey=entry=>entry.platforms.join('/');
 export const historyRecordKey=entry=>'played:'+entry.provider+':'+entry.id+':'+encodeURIComponent(platformKey(entry));
@@ -19,11 +20,13 @@ function contributions(personal,work){
     if(member.productId?.trim())keys.add(platformWorkKey('product:'+member.productId.trim(),platform));
   }
   const rows=new Map(),index=linkIndex(personal.works);
+  const allowed=historyPersonalScope(personal,work);
   // Expand remembered identities so edits also survive a later split/re-pair.
   for(const key of keys){
+    if(!allowed(key)){keys.delete(key);continue;}
     if(Object.hasOwn(personal.works,key))rows.set(key,{id:key,record:personal.works[key]});
-    for(const row of index.get(key)||[])rows.set(row.id,row);
-    for(const row of rows.values()){if(scoped(row.id))keys.add(row.id);for(const linked of row.record.linkedKeys||[])keys.add(linked);}
+    for(const row of index.get(key)||[])if(allowed(row.id))rows.set(row.id,row);
+    for(const row of rows.values()){if(scoped(row.id)&&allowed(row.id))keys.add(row.id);for(const linked of row.record.linkedKeys||[])if(allowed(linked))keys.add(linked);}
   }
   for(const source of work.sourceWorks||[work]){
     const inherited=workRecordFor(personal,source);
@@ -52,5 +55,10 @@ export function catalogRecordFor(personal,work){
   return merged;
 }
 export function catalogRecordNotes(personal,work){
-  const seen=new Set();return contributions(personal,work).rows.sort(newer).filter(row=>{const text=row.record.note;if(!text||seen.has(text))return false;seen.add(text);return true;}).map(row=>({key:row.id,note:row.record.note}));
+  const rows=contributions(personal,work).rows;
+  for(const entry of work.historyEntries||[])if(entry.pairing==='manual'){
+    const key=historyRecordKey(entry),member={name:entry.name,platform:entry.platforms.join('/'),entitlementId:key};
+    rows.push(...contributions(personal,{key,members:[member],historyEntries:[entry]}).rows);
+  }
+  const seen=new Set();return rows.sort(newer).filter(row=>{const text=row.record.note;if(!text||seen.has(text))return false;seen.add(text);return true;}).map(row=>({key:row.id,note:row.record.note}));
 }

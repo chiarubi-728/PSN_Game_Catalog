@@ -31,16 +31,19 @@
 <summary>進階資料</summary>
 <details id="edit-versions" hidden><summary>查看版本與授權</summary><div id="edit-version-list"></div></details>
 <details id="edit-official-section" hidden><summary>官方名稱對照</summary><p id="edit-official-names"></p><div id="edit-official-links" class="wrap"></div><p class="muted">以此數位商品的 Sony 公開資料取得原名，自動按相同平台與唯一名稱合併遊玩紀錄。</p></details>
-<details id="edit-aliases"><summary>遊戲別名／手動配對</summary>
-<p>通常由系統自動對照名稱；同一款遊戲仍分成數位版與獎盃兩張卡片時，才需要手動補充。</p>
-<ol id="edit-alias-help" class="manual-match-help">
-<li>確認兩張卡片是同一款遊戲、同一平台。</li>
-<li>打開數位版卡片，在下方填入另一張獎盃卡片的完整遊戲名稱，每行一個。</li>
-<li>按「儲存整理」，系統會嘗試合併唯一符合的遊玩與獎盃紀錄；有多筆候選時會維持分開。</li>
-</ol>
-<p>例如：數位版叫「雙人成行」，獎盃紀錄叫「It Takes Two」，可填入 <strong>It Takes Two</strong>。這類中英文名稱通常已能自動配對。</p>
-<label>其他來源的完整遊戲名稱（每行一個）<textarea id="edit-title-aliases" rows="3" aria-describedby="edit-alias-help" placeholder="例如：It Takes Two"></textarea></label>
-<p class="muted">只用於此平台，也可用別名搜尋。填錯時刪除該名稱再儲存；已加上的個人白金或分類需另行調整。</p>
+<details id="edit-pairing"><summary>配對遊玩／獎盃紀錄</summary>
+<p>從下方選擇這款遊戲的遊玩紀錄，不用輸入配對名稱。只列出同平台或包含此平台的紀錄，請核對是否為同款版本。</p>
+<p>選擇或解除後，按「儲存整理」才生效。解除後會保持分開，需要時可恢復自動對照。兩邊的筆記與分類各自保留；來源筆記可在「配對前保留的筆記」查看。</p>
+<p id="pairing-status" role="status" aria-live="polite" tabindex="-1"></p>
+<h4>目前配對</h4><div id="pairing-current"></div>
+<label>搜尋遊玩／獎盃紀錄<input id="pairing-search" type="search" maxlength="500" autocomplete="off" placeholder="輸入中英文遊戲名稱"></label>
+<p id="pairing-count" role="status"></p><div id="pairing-candidates" class="history-pair-list"></div>
+</details>
+<p id="edit-pairing-hint" hidden>要配對遊玩紀錄，請打開對應的數位版卡片，再從「進階資料」選擇紀錄。</p>
+<details id="edit-aliases"><summary>名稱別名（進階）</summary>
+<p>保留先前儲存的名稱別名，可用於搜尋及自動對照。要直接選卡片配對，請使用上方「配對遊玩／獎盃紀錄」。</p>
+<label>其他遊戲名稱（每行一個）<textarea id="edit-title-aliases" rows="3" placeholder="例如：It Takes Two" aria-describedby="edit-alias-help"></textarea></label>
+<p id="edit-alias-help" class="muted">只填遊戲名稱，不加「· PS4」等平台文字。別名僅用於此平台；刪除別名不會解除已選擇的卡片配對。</p>
 </details>
 </details><div class="dialog-actions"><a id="store-link" target="_blank" rel="noopener noreferrer">查看 PS Store ↗</a><button type="button" data-close>取消</button><button class="primary">儲存整理</button></div></form></dialog>
 <dialog id="data-dialog"><div class="dialog-title"><h2>資料管理</h2><button data-close aria-label="關閉資料管理">✕</button></div>

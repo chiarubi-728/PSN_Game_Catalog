@@ -6,6 +6,7 @@ import {localizeCatalogNames} from './catalog-display-names.js';
 import {groupVerifiedEditions} from './catalog-editions.js';
 import {historyRecordKey as historyKey} from './catalog-personal.js';
 import {extremeDate} from './dates.js';
+import {historyLinkKey,historyLinkPlan,canPairHistory} from './history-links.js';
 export {catalogRecordFor,catalogRecordNotes} from './catalog-personal.js';
 const platformKey=game=>game.platforms.join('/');
 export {historyKey as historyRecordKey};
@@ -15,20 +16,26 @@ function matchesName(work,entry,personal){return platformKey(work)===platformKey
 export function unifiedCatalog(library,personal,history,storeNames){
   const missing=new Set(library.missingIds||[]);
   const cards=groupVerifiedEditions(platformGames(library.games,library.missingIds).map(work=>({...work,officialNames:officialNamesFor(work,storeNames),digitalMembers:work.members,digitalOwned:work.members.some(g=>!missing.has(g.entitlementId)),historyEntries:[],played:false,platinum:false})));
+  const {decisions,slots}=historyLinkPlan(cards,personal);
   const byTitleId=new Map();
   for(const card of cards)for(const member of card.members){const id=gameTitleId(member);if(id){if(!byTitleId.has(id))byTitleId.set(id,new Set());byTitleId.get(id).add(card);}}
   const direct=new Map();
   for(const row of history?.sources?.sony?.mappings||[])for(const id of row.trophyIds){if(!direct.has(id))direct.set(id,new Set());for(const card of byTitleId.get(row.titleId)||[])if(card.platforms.includes(row.platform))direct.get(id).add(card);}
   for(const provider of ['sony','psnprofiles']){
-    const entries=(history?.sources?.[provider]?.games||[]).map(game=>({...game,provider}));
+    const entries=(history?.sources?.[provider]?.games||[]).map(game=>({...game,id:String(game.id),provider}));
     for(const entry of entries){
       let target;
-      const ids=provider==='sony'?[...(direct.get(entry.id)||[])].filter(card=>platformKey(card)===platformKey(entry)):[];
-      if(ids.length===1)target=ids[0];
-      if(!target&&ids.length===0){
-        const candidates=cards.filter(card=>!card.historyEntries.some(other=>other.provider===provider)&&matchesName(card,entry,personal));
+      const decision=decisions.get(historyLinkKey(provider,entry.id));
+      const available=card=>!slots.has(historyLinkKey(provider,card.key))&&!card.historyEntries.some(other=>other.provider===provider);
+      const ids=provider==='sony'?[...(direct.get(entry.id)||[])].filter(card=>platformKey(card)===platformKey(entry)&&!slots.has(historyLinkKey(provider,card.key))):[];
+      if(decision){
+        if(decision.card&&canPairHistory(decision.card,entry)&&slots.get(historyLinkKey(provider,decision.card.key))===1)target=decision.card;
+        entry.pairing=target?'manual':decision.link.target?'unavailable':'separate';
+      }else if(ids.length===1)target=ids[0];
+      if(!decision&&!target&&ids.length===0){
+        const candidates=cards.filter(card=>available(card)&&matchesName(card,entry,personal));
         // Multiple regional trophy stacks stay visible as separate records.
-        if(candidates.length===1&&entries.filter(other=>matchesName(candidates[0],other,personal)).length===1)target=candidates[0];
+        if(candidates.length===1&&entries.filter(other=>!decisions.has(historyLinkKey(provider,other.id))&&matchesName(candidates[0],other,personal)).length===1)target=candidates[0];
       }
       if(!target){
         const platform=platformKey(entry),member={name:entry.name,platform,entitlementId:historyKey(entry)};

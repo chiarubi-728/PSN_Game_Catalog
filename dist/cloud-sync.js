@@ -14,7 +14,7 @@ async function fingerprint(value){
   const bytes=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(canonical(value)));
   return [...new Uint8Array(bytes)].map(byte=>byte.toString(16).padStart(2,'0')).join('');
 }
-function hasData(value){return value.library.account||value.library.games.length||Object.keys(value.history.sources).length||value.personal.categories.length||Object.keys(value.personal.records).length||Object.keys(value.personal.works).length||Object.keys(value.storeNames.records).length;}
+function hasData(value){return value.library.account||value.library.games.length||Object.keys(value.history.sources).length||value.personal.categories.length||Object.keys(value.personal.records).length||Object.keys(value.personal.works).length||value.personal.historyLinks?.length||Object.keys(value.storeNames.records).length;}
 function describe(value){return value.library.games.length+' 筆數位授權、'+Object.values(value.history.sources).reduce((sum,source)=>sum+source.games.length,0)+' 筆遊玩紀錄、'+value.personal.categories.length+' 個自訂分類';}
 
 export function initCloudSync({getSnapshot,applySnapshot,isBlocked,isDemo,isEditing,notice}){

@@ -8,6 +8,7 @@
 | `dist/catalog*.js`、`browse-filters.js` | 遊戲合併、命名、搜尋與篩選 |
 | `dist/dates.js`、`catalog-sort.js` | 日期驗證、日期覆蓋與未知日期排序 |
 | `dist/model.js`、`history.js`、`store-names.js` | 資料格式、舊備份相容、獎盃與官方名稱 |
+| `dist/history-links.js`、`history-pairing-ui.js` | 明確的遊玩紀錄配對／保持分開、個人資料驗證與卡片選擇介面 |
 | `dist/sync-ui.js`、`script-bridge.js`、`source-relay.js`、`scripts/` | 整合同步與使用者腳本；保留現有安裝 URL |
 | `dist/sony-launch.html` | 在 Sony 登入跳轉前，先由整合腳本為來源分頁保存本輪同步識別 |
 | `dist/cloud-sync.js`、`shared/` | Google 登入、雲端版本比對與保存 |

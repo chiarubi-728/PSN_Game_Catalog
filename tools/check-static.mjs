@@ -37,7 +37,7 @@ for(const file of files.filter(file=>file.endsWith('.html'))){
 }
 const html=await readFile(path.join(root,'dist/index.html'),'utf8');
 const ids=new Set([...html.matchAll(/\bid="([^"]+)"/g)].map(match=>match[1]));
-for(const file of ['app','sync-ui','history-ui','store-names-ui','cloud-sync']){
+for(const file of ['app','sync-ui','history-ui','store-names-ui','cloud-sync','history-pairing-ui']){
   const source=await readFile(path.join(root,`dist/${file}.js`),'utf8');
   for(const match of source.matchAll(/\$\('([^']+)'\)/g))if(!ids.has(match[1]))throw Error(`${file}: missing HTML id ${match[1]}`);
 }
