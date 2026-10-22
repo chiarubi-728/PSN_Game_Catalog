@@ -1,5 +1,6 @@
 import {historyProfile} from './history.js';
 import {assertCatalogAccount} from './model.js';
+import {pingScript} from './script-bridge.js';
 
 export function initUnifiedSync({historySync,getState,saveLibrary,confirmAccount,syncNames,cancelNames,isDemo,isBlocked,notice}){
   const $=id=>document.getElementById(id),dialog=$('sync-dialog');
@@ -22,7 +23,14 @@ export function initUnifiedSync({historySync,getState,saveLibrary,confirmAccount
   function say(text){$('sync-status').textContent=text;$('sync-state').textContent=text;}
   function step(id,state){const node=$('sync-step-'+id);node.dataset.state=state;node.querySelector('span').textContent={waiting:'待處理',running:'進行中',done:'完成',error:'未完成',skipped:'此次略過'}[state];}
   function show(){if(!dialog.open)dialog.showModal();}
-  function clean(){if(active){clearTimeout(active.timer);clearInterval(active.watcher);}active=null;$('sync-cancel').hidden=true;$('sync-all').disabled=false;$('sync-all').textContent='↻ 同步遊戲庫';for(const id of ['fetch','history-fetch','sync-history-only','sync-profile'])$(id).disabled=false;}
+  function clean(){
+    if(active){
+      clearTimeout(active.timer);clearInterval(active.watcher);
+      // Only close the untouched placeholder opened by this run.
+      try{if(active.child&&!active.child.closed&&active.child.location.href==='about:blank')active.child.close();}catch{}
+    }
+    active=null;$('sync-cancel').hidden=true;$('sync-all').disabled=false;$('sync-all').textContent='↻ 同步遊戲庫';for(const id of ['fetch','history-fetch','sync-history-only','sync-profile'])$(id).disabled=false;
+  }
   function fail(run,error){
     if(active!==run)return;
     step(run.stage,'error');const stage=run.stage;lastMode=['history','names'].includes(stage)?stage:run.mode;
@@ -47,6 +55,27 @@ export function initUnifiedSync({historySync,getState,saveLibrary,confirmAccount
     });
     if(active===run)run.child=child;
   }
+  function digital(run){
+    if(active!==run)return;
+    const url=new URL('https://library.playstation.com/recently-purchased');url.hash=new URLSearchParams({psgbOrigin:location.origin,psgbSession:run.session,psgbProfile:run.profile}).toString();
+    run.child.location.href=url.href;
+    say('1 / 3 · 請在來源分頁登入 PlayStation、切到「已購買」，並確認登入帳號為 '+run.profile+'。');
+    run.timer=setTimeout(()=>fail(run,Error('等候數位遊戲庫逾時。請確認整合腳本已安裝，並在官方分頁切到「已購買」，再重試。')),300000);
+  }
+  async function begin(run){
+    try{
+      if(run.mode!=='digital'){
+        say('正在確認遊戲庫主頁與整合腳本的連線…');
+        const ready=await pingScript({timeout:3000});
+        if(active!==run)return;
+        const version=String(ready?.version||'').split('.').map(Number),minimum=[0,3,3];
+        const different=minimum.findIndex((value,index)=>version[index]!==value);
+        if(!ready?.onlineNames||version.length!==3||version.some(value=>!Number.isSafeInteger(value)||value<0)||different>=0&&version[different]<minimum[different])throw Error('請安裝／更新整合腳本至 v0.3.3，並重新整理遊戲庫主頁後再同步。');
+      }
+      if(active!==run)return;
+      if(run.mode==='history')history(run);else digital(run);
+    }catch(error){fail(run,error);}
+  }
   function start(mode='all'){
     if(active){show();return;}
     if(isDemo())return notice('請先離開示範模式，再同步個人遊戲庫。');
@@ -61,13 +90,12 @@ export function initUnifiedSync({historySync,getState,saveLibrary,confirmAccount
     for(const id of ['fetch','history-fetch','sync-history-only','sync-profile'])$(id).disabled=true;
     step('digital',['history','names'].includes(mode)?'skipped':'running');step('history',['digital','names'].includes(mode)?'skipped':'waiting');step('names',mode==='digital'?'skipped':'waiting');show();
     if(mode==='names')void names(run);
-    else if(mode==='history')history(run);
     else{
-      const url=new URL('https://library.playstation.com/recently-purchased');url.hash=new URLSearchParams({psgbOrigin:location.origin,psgbSession:run.session,psgbProfile:profile}).toString();
-      run.child=window.open(url.href,'_blank');
+      // Open synchronously during the user's click, before awaiting the script
+      // check, so the source tab is not blocked as an unsolicited popup.
+      run.child=window.open('about:blank','_blank');
       if(!run.child){fail(run,Error('同步分頁被瀏覽器封鎖，請允許彈出視窗後重試。'));return;}
-      say('1 / 3 · 請在來源分頁登入 PlayStation、切到「已購買」，並確認登入帳號為 '+profile+'。');
-      run.timer=setTimeout(()=>fail(run,Error('等候數位遊戲庫逾時。請確認整合腳本已安裝，並在官方分頁切到「已購買」，再重試。')),300000);
+      void begin(run);
     }
     // History uses a userscript mailbox: cross-site isolation can report the
     // reused tab as closed even while PSNProfiles is loading in that same tab.

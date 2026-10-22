@@ -19,12 +19,14 @@ export function initHistorySync({getState,setHistory,save,render,notice,isDemo,i
       let wait;
       function cleanup(){clearTimeout(wait);window.removeEventListener('message',ready);current.cancelPrepare=null;}
       function ready(event){
-        if(event.source!==window||event.origin!==location.origin||event.data?.type!=='PSGB_HISTORY_RELAY_READY'||event.data.session!==current.session)return;
+        // Extension replies may have a null source; origin and the fresh run
+        // session still have to match. Cross-site source messages stay strict.
+        if((event.source!==window&&event.source!==null)||event.origin!==location.origin||event.data?.type!=='PSGB_HISTORY_RELAY_READY'||event.data.session!==current.session)return;
         cleanup();event.data.available?resolve():reject(Error('跨分頁同步尚未就緒。請更新整合腳本至 v0.3.3、同意新增權限，並重新整理遊戲庫後再同步。'));
       }
       current.cancelPrepare=()=>{cleanup();reject(Error('已停止等待來源分頁。'));};
       window.addEventListener('message',ready);
-      wait=setTimeout(()=>{cleanup();reject(Error('未收到新版整合腳本回應。請安裝／更新 v0.3.3，重新整理遊戲庫後再同步。'));},3000);
+      wait=setTimeout(()=>{cleanup();reject(Error('遊戲庫主頁未收到跨分頁通道回應。請確認 Tampermonkey 允許 PSN Game Catalog 在此頁執行，並重新整理主頁。'));},3000);
       window.postMessage({type:'PSGB_HISTORY_RELAY_START',session:current.session,profile:current.profile},location.origin);
     });
   }
@@ -71,7 +73,7 @@ export function initHistorySync({getState,setHistory,save,render,notice,isDemo,i
   $('history-fetch').onclick=()=>start();
   window.addEventListener('message',event=>{
     if(!bridge)return;
-    const relayed=event.origin===location.origin&&event.source===window&&event.data?.type==='PSGB_HISTORY_RELAY_MESSAGE'&&event.data.sourceOrigin===bridge.origin;
+    const relayed=event.origin===location.origin&&(event.source===window||event.source===null)&&event.data?.type==='PSGB_HISTORY_RELAY_MESSAGE'&&event.data.sourceOrigin===bridge.origin;
     if(relayed&&!bridge.relay)return;
     if(!relayed&&(event.origin!==bridge.origin||event.source!==bridge.child))return;
     const data=relayed?event.data.message:event.data;
