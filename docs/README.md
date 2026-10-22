@@ -7,7 +7,7 @@
 | [使用說明](使用說明.md) | 安裝、同步、搜尋與三段式篩選、分類、排序及備份 |
 | [Google 雲端同步](CLOUD_SYNC.md) | 連接、跨裝置版本比較、衝突復原與自架 OAuth 設定 |
 | [公開應用程式介紹](https://chiarubi-728.github.io/PSN_Game_Catalog/about.html) | 功能與 Google 資料用途 |
-| [隱私權政策](https://chiarubi-728.github.io/PSN_Game_Catalog/privacy.html) | 本機保存、來源暫存、Google 資料與刪除方式 |
+| [隱私權政策](https://chiarubi-728.github.io/privacy.html) | 本機保存、來源暫存、Google 資料與刪除方式 |
 
 ## 維護專案
 

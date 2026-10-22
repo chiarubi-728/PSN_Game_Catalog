@@ -52,8 +52,10 @@ Google「品牌」頁須先完成應用程式名稱、使用者支援電子郵�
 - 應用程式名稱：`PSN Game Catalog`。
 - 使用者支援電子郵件：在主控台選擇擁有者持續收信的帳號，未將私人信箱硬寫入網站。
 - 應用程式首頁：`https://chiarubi-728.github.io/`（公開首頁，另由 `chiarubi-728.github.io` 儲存庫維護；原 `PSN_Game_Catalog/about.html` 仍保留）。
-- 隱私權政策：`https://chiarubi-728.github.io/PSN_Game_Catalog/privacy.html`。
-- 服務條款／說明：`https://chiarubi-728.github.io/PSN_Game_Catalog/terms.html`。
+- 隱私權政策：`https://chiarubi-728.github.io/privacy.html`。
+- 服務條款／說明：`https://chiarubi-728.github.io/terms.html`。
+
+以上兩個總站政策頁完整收錄 PSN Game Catalog 專屬內容，原 PSN_Game_Catalog/privacy.html 與 terms.html 繼續保留。首頁、遊戲庫及介紹頁的主要政策連結已改為總站網址；Google Console 的政策欄位需由擁有者更新。
 
 政策依目前實作說明 Google 身分、Drive appDataFolder、瀏覽器保存、復原副本、權杖記憶體保存及刪除方式。修改資料處理方式時需同步更新政策。網站部署不會代為改變 Google Cloud 的首頁設定、發布或驗證狀態；如主控台另要求品牌、網域或資料存取驗證，依其實際要求完成。公開首頁沿用同一網域現有介紹頁的 Search Console 驗證 meta；仍須由專案擁有者確認其所有權驗證結果。
 

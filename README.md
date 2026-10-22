@@ -39,7 +39,7 @@ Sony 登入與來源網站驗證需自行完成。腳本只帶入預期帳號，
 
 Google 登入用於自己的 Drive 備份空間，與 PSN 登入分開；兩端資料都有修改時，會暫停並請你選擇版本。詳細行為及自架設定見 [雲端同步說明](docs/CLOUD_SYNC.md)。GitHub 儲存庫不保存使用者的私人遊戲庫。
 
-[隱私權政策](https://chiarubi-728.github.io/PSN_Game_Catalog/privacy.html) · [服務說明](https://chiarubi-728.github.io/PSN_Game_Catalog/terms.html)
+[隱私權政策](https://chiarubi-728.github.io/privacy.html) · [服務說明](https://chiarubi-728.github.io/terms.html)
 
 ## 文件與開發
 
