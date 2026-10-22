@@ -47,7 +47,7 @@ Google「品牌」頁須先完成應用程式名稱、使用者支援電子郵�
 
 - 應用程式名稱：`PSN Game Catalog`。
 - 使用者支援電子郵件：在主控台選擇擁有者持續收信的帳號，未將私人信箱硬寫入網站。
-- 首頁：`https://chiarubi-728.github.io/PSN_Game_Catalog/`。
+- 應用程式首頁：`https://chiarubi-728.github.io/PSN_Game_Catalog/about.html`（公開介紹頁）。
 - 隱私權政策：`https://chiarubi-728.github.io/PSN_Game_Catalog/privacy.html`。
 - 服務條款／說明：`https://chiarubi-728.github.io/PSN_Game_Catalog/terms.html`。
 

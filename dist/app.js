@@ -2,10 +2,10 @@ import {initUnifiedSync} from './sync-ui.js';
 // PSGB_PLATFORM_SPLIT_V1
 import {initHistorySync} from './history-ui.js';
 import {emptyHistory,readHistory,mergeHistory,trophyStatistics} from './history.js';
-import {unifiedCatalog,catalogRecordFor,catalogPlatinum,catalogView,catalogRecordNotes} from './catalog.js';
+import {unifiedCatalog,catalogRecordFor,catalogView,catalogRecordNotes} from './catalog.js';
 import {emptyStoreNames,readStoreNames,mergeStoreNames} from './store-names.js';
 import {initStoreNames} from './store-names-ui.js';
-import {classificationOptions, classificationFor, personalPlatinum, matchesClassification, library, personal, emptyPersonal, blankRecord, workRecordFor, hasWorkConflicts, platformGames as groupGames, needsPlatformPlatinumReview, matchesWorkFilters, mergeLibrary, parseImport, assertCatalogAccount} from './model.js';
+import {classificationOptions, classificationFor, personalPlatinum, library, personal, emptyPersonal, blankRecord, hasWorkConflicts, mergeLibrary, parseImport, assertCatalogAccount} from './model.js';
 import {icon} from './icons.js';
 import {catalogSearchKey,matchesCatalogSearch} from './catalog-search.js';
 import {initCloudSync} from './cloud-sync.js';
