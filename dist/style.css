@@ -123,3 +123,4 @@ main{padding-top:27px}.catalog-header header{align-items:flex-start;gap:18px}.he
 @media(max-width:700px){.catalog-tools .catalog-search{flex:0 1 25ch;min-width:0;width:min(25ch,100%)}.platform-filters{gap:6px}.platform-chip{padding:8px 10px}}
 
 .classification-filters .platform-chip[data-filter-state="exclude"]{background:#39232b;border-color:#e28e9b;color:#ffbcc7}.classification-filters .platform-chip[data-filter-state="include"]{background:#263c59;border-color:#89acd9;color:#e2edff}
+.script-help .script-next-step{margin-top:12px}
