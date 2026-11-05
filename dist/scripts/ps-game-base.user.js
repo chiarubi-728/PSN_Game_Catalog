@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PSN Game Catalog
 // @namespace    personal.ps-game-base
-// @version      0.3.9
+// @version      0.3.10
 // @description  線上整合數位遊戲庫、PSNProfiles 全部遊玩紀錄與 Sony 官方中英文名稱。
 // @match        https://library.playstation.com/*
 // @match        https://store.playstation.com/*
@@ -532,7 +532,13 @@ const psgbSonyRelay=(()=>{
       if (typeof p.isLast !== 'boolean' || p.offset !== offset || !Number.isSafeInteger(p.size) || p.size < 0 || !Number.isSafeInteger(p.totalCount) || p.totalCount < 0) throw new Error('官方分頁資訊不正確。');
       if (p.isLast) return null;
       const next = p.offset + p.size;
-      if (!page.games.length || next <= offset || next >= p.totalCount) throw new Error('官方分頁未前進，已停止。');
+      if (!page.games.length || next <= offset || next > p.totalCount) throw new Error(`官方分頁未前進（起點 ${offset}、頁量 ${p.size}、總數 ${p.totalCount}），已停止。`);
+      // Some full final pages may omit isLast. Accept the exact boundary only;
+      // sync() also checks the unique entitlement count before marking complete.
+      if (next === p.totalCount) {
+        if (page.games.length !== p.size) throw new Error('官方最後一頁筆數不符，結果尚未完整。');
+        return null;
+      }
       return next;
     }
     return page.games.length < size ? null : offset + page.games.length;
@@ -565,6 +571,7 @@ const psgbSonyRelay=(()=>{
         }
         games = [...seen.values()];
         if (next === null) {
+          if (page.pageInfo?.isLast === false && games.length !== page.pageInfo.totalCount) throw new Error(`官方總數為 ${page.pageInfo.totalCount} 筆，但只讀到 ${games.length} 筆不同授權，結果尚未完整。`);
           complete = true; syncedAt = new Date().toISOString();
           message = `同步完成：${games.length} 筆有效數位授權（不是付款紀錄）。`; break;
         }
@@ -617,7 +624,7 @@ const psgbSonyRelay=(()=>{
   function render() {
     if (!root) return;
     root.querySelector('#status').textContent = message;
-    root.querySelector('#diagnostics').textContent = `v0.3.9 · fetch ${diagnostics.fetch} / XHR ${diagnostics.xhr} / GraphQL ${diagnostics.graphql} / 已購買 ${diagnostics.purchased} / 無 Bearer ${diagnostics.noBearer} / 缺查詢碼 ${diagnostics.noHash} / 格式錯誤 ${diagnostics.parseError} · 操作：${[...operations].join(', ') || '尚未辨識'}${lastParseError ? ` · 最近解析失敗：${lastParseError}` : ''}`;
+    root.querySelector('#diagnostics').textContent = `v0.3.10 · fetch ${diagnostics.fetch} / XHR ${diagnostics.xhr} / GraphQL ${diagnostics.graphql} / 已購買 ${diagnostics.purchased} / 無 Bearer ${diagnostics.noBearer} / 缺查詢碼 ${diagnostics.noHash} / 格式錯誤 ${diagnostics.parseError} · 操作：${[...operations].join(', ') || '尚未辨識'}${lastParseError ? ` · 最近解析失敗：${lastParseError}` : ''}`;
     root.querySelector('#sync').disabled=busy||!queryHash||!accountConfirmedAt;
     root.querySelector('#source-profile').disabled=busy;root.querySelector('#account-confirm').disabled=busy;root.querySelector('#account-confirm').checked=!!accountConfirmedAt;
     root.querySelector('#stop').disabled = !busy;
@@ -649,7 +656,7 @@ const psgbSonyRelay=(()=>{
     const launch = el('button', 'PSN Game Catalog', root); launch.id = 'launch';
     const panel = el('section', undefined, root); panel.id = 'panel'; panel.hidden = !bridge; panel.setAttribute('aria-label', 'PSN Game Catalog');
     launch.onclick = () => { panel.hidden = !panel.hidden; render(); };
-    el('h2', 'PSN Game Catalog · 遊戲庫 v0.3.9', panel);
+    el('h2', 'PSN Game Catalog · 遊戲庫 v0.3.10', panel);
     const advanced=el('details',undefined,panel);advanced.id='source-details';el('summary','進階／讀取診斷',advanced);
     if (bridge) el('p', `由 ${bridge.origin} 開啟：完整同步後，遊戲資料將自動回傳該管理頁供確認。登入憑證不會回傳。`, advanced);
     el('p', '查詢有效的 PS4／PS5 數位授權，包含免費與 PS Plus，並嘗試讀取取得日期。未包含付款紀錄、實體收藏及遊玩時數。權杖與資料僅暫存本分頁，重新整理即清除。', advanced);
@@ -707,7 +714,7 @@ if(location.hostname==='psnprofiles.com'){const initialize=()=>{
   root.append(style);
   const panel = document.createElement('section');root.append(panel);
   function el(tag,text) { const n=document.createElement(tag);n.textContent=text;panel.append(n);return n; }
-  el('h2','PSN Game Catalog · 完整遊玩紀錄 v0.3.9');
+  el('h2','PSN Game Catalog · 完整遊玩紀錄 v0.3.10');
   el('p',bridge ? `將 ${profile} 的全部公開遊戲、獎盃進度與白金狀態傳回 ${origin}。數位版與實體版的遊玩紀錄都會加入主清單，不需逐款配對。` : '請使用全部平台、全部完成狀態並清空搜尋。讀取後可匯出完整遊玩紀錄 JSON，再匯入 Game Base。');
   const status=el('p','準備讀取。');status.setAttribute('role','status');
   const collect=el('button','讀取全部遊戲'), download=el('button','匯出遊玩紀錄 JSON');download.disabled=true;
@@ -874,7 +881,7 @@ if(location.hostname==='psnprofiles.com'){const initialize=()=>{
         games.push({name:title.textContent.trim(),platforms,psnprofilesId:source.id,url:source.url,platinum:earned,progress:progressFor(row),earnedTotal,definedTotal,...(lastTrophyAt?{lastTrophyAt}:{}),...(imageUrl?.startsWith('https://')?{imageUrl}:{}),...(region?{region}:{})});
       }
       if(failed.length){
-        diagnostic={kind:'ps-game-base-psnprofiles-diagnostic',schemaVersion:1,scriptVersion:'0.3.9',profile,createdAt:new Date().toISOString(),stage,expectedTotal,pageCount,totalRows:rows.length,parsedRows:games.length,failedRows:failed.length,samples:failed.slice(0,8)};
+        diagnostic={kind:'ps-game-base-psnprofiles-diagnostic',schemaVersion:1,scriptVersion:'0.3.10',profile,createdAt:new Date().toISOString(),stage,expectedTotal,pageCount,totalRows:rows.length,parsedRows:games.length,failedRows:failed.length,samples:failed.slice(0,8)};
         diagnosticButton.disabled=false;const first=failed[0];throw Error(`已辨識 ${games.length} / ${rows.length} 筆；第 ${first.row} 筆「${first.name||'名稱空白'}」：${first.reasons.join('、')}。請按「匯出讀取診斷」提供檔案；目前未匯入不完整清單。`);
       }
       if(new Set(games.map(g=>g.psnprofilesId)).size!==games.length)throw Error('清單有重複紀錄，請重新整理後再試。');
@@ -884,7 +891,7 @@ if(location.hostname==='psnprofiles.com'){const initialize=()=>{
       send('PSGB_HISTORY_RESULT',{payload:snapshot});download.disabled=false;
       if(bridge)setTimeout(()=>{if(!acknowledged)status.textContent=`已讀取 ${games.length} 筆遊戲，但尚未收到 Game Base 保存確認。可按「匯出遊玩紀錄 JSON」，回遊戲庫匯入。`;},5000);
     } catch(e) {
-      if(!diagnostic){const control=moreControl();diagnostic={kind:'ps-game-base-psnprofiles-diagnostic',schemaVersion:1,scriptVersion:'0.3.9',profile,createdAt:new Date().toISOString(),stage,expectedTotal,pageCount,totalRows:gameRows().length,remaining:remainingGames(control),controlText:controlText(control),samples:[],error:String(e.message).slice(0,600)};}
+      if(!diagnostic){const control=moreControl();diagnostic={kind:'ps-game-base-psnprofiles-diagnostic',schemaVersion:1,scriptVersion:'0.3.10',profile,createdAt:new Date().toISOString(),stage,expectedTotal,pageCount,totalRows:gameRows().length,remaining:remainingGames(control),controlText:controlText(control),samples:[],error:String(e.message).slice(0,600)};}
       diagnosticButton.disabled=false;report(e.message);send('PSGB_HISTORY_ERROR',{message:String(e.message).slice(0,500)});
     } finally {busy=false;collect.disabled=false;}
   }
@@ -962,7 +969,7 @@ if(location.hostname==='psnprofiles.com'){const initialize=()=>{
   window.addEventListener('message',async event=>{
     if(event.origin!==location.origin||(event.source!==window&&event.source!==(typeof unsafeWindow==='undefined'?window:unsafeWindow)))return;
     const data=event.data;if(!data||!/^[a-f0-9-]{36}$/i.test(data.requestId||''))return;
-    if(data.type==='PSGB_CATALOG_PING'){reply(data.requestId,{version:'0.3.9',onlineNames:true,sonyRelay:psgbSonyRelay.supported});return;}
+    if(data.type==='PSGB_CATALOG_PING'){reply(data.requestId,{version:'0.3.10',onlineNames:true,sonyRelay:psgbSonyRelay.supported});return;}
     if(data.type==='PSGB_CATALOG_CANCEL'){const job=jobs.get(data.requestId);if(job){job.stopped=true;for(const abort of [...job.aborters])abort();}return;}
     if(data.type!=='PSGB_CATALOG_NAMES')return;
     if(jobs.size||!Array.isArray(data.products)||!data.products.length||data.products.length>4||data.products.some(item=>!item||!productPattern.test(item.productId||'')||item.conceptId!==undefined&&!/^\d{1,12}$/.test(item.conceptId))){reply(data.requestId,null,'INVALID_REQUEST');return;}

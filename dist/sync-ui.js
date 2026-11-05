@@ -78,8 +78,8 @@ export function initUnifiedSync({historySync,getState,saveLibrary,confirmAccount
       say('正在確認同步腳本…');
       const ready=await pingScript({timeout:3000,signal:run.controller.signal});
       if(active!==run)return;
-      const version=String(ready?.version||'').split('.').map(Number),minimum=[0,3,9],different=minimum.findIndex((value,index)=>version[index]!==value);
-      if(!ready?.onlineNames||!ready?.sonyRelay||version.length!==3||version.some(value=>!Number.isSafeInteger(value)||value<0)||different>=0&&version[different]<minimum[different])throw Object.assign(Error('請更新整合腳本至 v0.3.9。安裝完成後，按下方「重新整理主頁」，再按右上角「同步遊戲庫」。'),{code:'script-update'});
+      const version=String(ready?.version||'').split('.').map(Number),minimum=[0,3,10],different=minimum.findIndex((value,index)=>version[index]!==value);
+      if(!ready?.onlineNames||!ready?.sonyRelay||version.length!==3||version.some(value=>!Number.isSafeInteger(value)||value<0)||different>=0&&version[different]<minimum[different])throw Object.assign(Error('請更新整合腳本至 v0.3.10。安裝完成後，按下方「重新整理主頁」，再按右上角「同步遊戲庫」。'),{code:'script-update'});
       $('script-help').hidden=true;
       if(active!==run)return;
       if(run.mode==='names')await names(run);else if(run.mode==='history')history(run);else await digital(run);

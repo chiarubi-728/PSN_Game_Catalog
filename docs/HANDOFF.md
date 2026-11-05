@@ -1,6 +1,6 @@
 # 目前交接狀態
 
-更新：2026-11-05 · 整合腳本：**v0.3.9**
+更新：2026-11-05 · 整合腳本：**v0.3.10**
 
 ## 正式來源
 
@@ -10,6 +10,12 @@
 - 公開首頁：[Rubi’s Cluttered Corner](https://chiarubi-728.github.io/)，另由 `chiarubi-728.github.io` 儲存庫的 main 根目錄發布。首頁整合卡蒂狗・風速狗圖鑑、App 停用入口與 PSN 遊戲庫；Google 資料用途區塊明確限定 PSN Game Catalog。詳細資料說明已移到總站 privacy.html／terms.html，完整包含 PSN 政策；首頁、遊戲庫與介紹頁主要連結同步更新。原專屬政策與 about.html 仍保留，遊戲庫網址不變。總站 PSN 政策與原專屬內容需持續同步維護。Google Console 首頁設定與重新提交由使用者處理；新增首頁不代表驗證已通過。
 - 操作看 [使用說明](使用說明.md)，目錄與指令看 [維護指南](MAINTENANCE.md)。
 - 歷次修正及回復資訊已移至 [開發紀錄](history/2026-10-22-development-notes.md)。
+
+## v0.3.10：Sony 分頁終點
+
+截圖顯示 Sony 共 600 筆，腳本保留 500 筆並報「官方分頁未前進」。原 nextOffset 在 isLast=false 且 offset+size 等於 totalCount 時直接拒絕，而當頁在分頁判斷後才加入，符合最後 100 筆未加入的現象。截圖未附原始 pageInfo，這仍是待來源同步確認的推論。
+
+修正僅允許精確終點 offset+size=totalCount，且當頁 games.length=size、合併後不同 entitlementId 數量=totalCount 才完成。越界、未前進、空頁或缺筆仍拒絕；非完整結果不回傳保存。失敗訊息補上非敏感分頁數字，方便後續確認。腳本與最低版本更新為 0.3.10，主頁與來源頁需重新整理。靜態檢查通過，未執行測試套件，真實 600 筆同步待使用者重試。
 
 ## 卡片／條列檢視
 
