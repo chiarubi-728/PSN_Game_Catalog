@@ -1,6 +1,6 @@
 # 目前交接狀態
 
-更新：2026-10-23 · 整合腳本：**v0.3.8**
+更新：2026-11-05 · 整合腳本：**v0.3.9**
 
 ## 正式來源
 
@@ -10,6 +10,14 @@
 - 公開首頁：[Rubi’s Cluttered Corner](https://chiarubi-728.github.io/)，另由 `chiarubi-728.github.io` 儲存庫的 main 根目錄發布。首頁整合卡蒂狗・風速狗圖鑑、App 停用入口與 PSN 遊戲庫；Google 資料用途區塊明確限定 PSN Game Catalog。詳細資料說明已移到總站 privacy.html／terms.html，完整包含 PSN 政策；首頁、遊戲庫與介紹頁主要連結同步更新。原專屬政策與 about.html 仍保留，遊戲庫網址不變。總站 PSN 政策與原專屬內容需持續同步維護。Google Console 首頁設定與重新提交由使用者處理；新增首頁不代表驗證已通過。
 - 操作看 [使用說明](使用說明.md)，目錄與指令看 [維護指南](MAINTENANCE.md)。
 - 歷次修正及回復資訊已移至 [開發紀錄](history/2026-10-22-development-notes.md)。
+
+## v0.3.9：PSNProfiles 的 Vita 平台辨識
+
+使用者提供的診斷顯示清單已展開 944 筆，915 筆可解析、29 筆失敗；診斷只保留前 8 筆失敗樣本，這 8 筆皆為 text=Vita、class=tag platform psvita，舊式正規表示式只接受 PS Vita 而未讀取 class，導致平台空白。不能據此斷言其餘未附樣本皆為同一問題。
+
+新版只在平台節點內讀取文字、title、data-platform、class 及圖示屬性，補上 Vita／PS Vita／Vita TV／PS Vita TV 並正規化為 PSVITA，PSPC 正規化為 PC，既有 PS3／PS4／PS5 及多平台保留。未放寬完整性、帳號、白金及重複紀錄檢查，不跳過失敗資料。安裝版本、主頁版本提示與最低版本同步更新至 0.3.9，使用者需更新 Tampermonkey 腳本並重新整理主頁及來源頁。
+
+本輪依診斷與原始碼確認原因，未新增或執行自動化測試；完整 944 筆讀取及回傳仍待朋友重新同步確認。私人診斷檔未加入 Git。
 
 ## 現行同步流程
 
