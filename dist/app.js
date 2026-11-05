@@ -14,8 +14,12 @@ import {categoryPopover} from './category-popover.js';
 import {compareCatalog,dateSorts,catalogSortPlan} from './catalog-sort.js';
 import {dateValue,displayDate} from './dates.js';
 import {initHistoryPairing} from './history-pairing-ui.js';
+import {renderCatalogList} from './catalog-list.js';
 
 const $ = id => document.getElementById(id), KEY = 'ps-game-base.v1', RELEASE_BACKUP_KEY='ps-game-base.before-date-sorting.7a41046';
+const LAYOUT_KEY='ps-game-base.catalog-layout.v1';
+let catalogLayout='cards';
+try{if(localStorage.getItem(LAYOUT_KEY)==='list')catalogLayout='list';}catch{}
 let state = {library:{schemaVersion:1,complete:false,syncedAt:null,games:[],missingIds:[]},personal:emptyPersonal(),history:emptyHistory(),storeNames:emptyStoreNames()}, view='all', category='', page=1, selected=new Set(), shown=[], eligible=new Set(), pendingImport=null, demo=false;
 let works = new Map(),namesSync=null,unifiedSync=null,cloudSync=null;
 let localLoadFailed=false,releaseBackupFailed=false,storageFailed=false,externalChanged=false;
@@ -148,11 +152,13 @@ function render(){
  $('sort-direction').querySelector('[value="asc"]').textContent=sortField==='name'?'名稱正序':'舊到新';
  $('sort-direction').querySelector('[value="desc"]').textContent=sortField==='name'?'名稱反序':'新到舊';
  const pages=Math.max(1,Math.ceil(filtered.length/48));page=Math.min(page,pages);shown=filtered.slice((page-1)*48,page*48);
- $('grid').replaceChildren();$('empty').hidden=filtered.length>0;
+ $('grid').replaceChildren();$('grid').classList.toggle('catalog-list',catalogLayout==='list');$('grid').setAttribute('aria-label','遊戲清單（'+(catalogLayout==='list'?'條列式':'卡片式')+'）');$('empty').hidden=filtered.length>0;
+ for(const button of $('catalog-layout').querySelectorAll('[data-layout]')){const active=button.dataset.layout===catalogLayout;button.classList.toggle('is-active',active);button.setAttribute('aria-pressed',String(active));}
  $('empty').querySelector('h2').textContent=games.length?(query?'找不到符合搜尋的遊戲':'目前沒有符合條件的遊戲'):'數位擁有與所有遊玩紀錄，整理在一起。';
  $('empty').querySelector('p').textContent=games.length?'可調整或清除搜尋、平台、分類與獎盃完成率條件；沒有進度的遊戲不會符合百分比篩選。':'匯入官方數位遊戲庫，或按「同步遊戲庫」更新數位授權與全部遊玩紀錄，包含尚未白金的遊戲。';
  $('empty-import').hidden=games.length>0;$('demo').hidden=games.length>0||demo;
- for(const g of shown){const id=g.key,r=record(id),card=el('article',undefined,'card'),art=el('div',undefined,'art');
+ if(catalogLayout==='list')$('grid').append(renderCatalogList({games:shown,getRecord:game=>record(game.key),selected,missing,sortField,onSelect:(game,checked)=>{checked?selected.add(game.key):selected.delete(game.key);renderBatch();},onEdit:edit,renderActions:quickClassifications}));
+ else for(const g of shown){const id=g.key,r=record(id),card=el('article',undefined,'card'),art=el('div',undefined,'art');
   const placeholder=el('div',g.name.split(/\s/).map(s=>s[0]).slice(0,3).join(''),'cover-placeholder');art.append(placeholder);
   if(g.imageUrl){const image=el('img');image.src=g.imageUrl;image.alt='';image.loading='lazy';image.referrerPolicy='no-referrer';image.onerror=()=>image.remove();art.append(image);}
   const check=el('input');check.type='checkbox';check.className='card-check';check.checked=selected.has(id);check.setAttribute('aria-label','選取 '+g.name+' · '+g.platforms.join(' / '));check.onchange=()=>{check.checked?selected.add(id):selected.delete(id);renderBatch();};art.append(check);
@@ -173,6 +179,12 @@ function render(){
  $('result-count').textContent='共 '+filtered.length+' 款遊戲';$('page-label').textContent=page+' / '+pages;$('prev').disabled=page===1;$('next').disabled=page===pages;renderBatch();$('reset-demo').hidden=!demo;unifiedSync?.refresh();cloudSync?.refresh();
 }
 function renderBatch(){$('batch').hidden=!selected.size;$('selected-count').textContent=`已選 ${selected.size} 款遊戲`;$('apply-category').disabled=!selected.size||!$('batch-category').value;}
+for(const button of $('catalog-layout').querySelectorAll('[data-layout]'))button.onclick=()=>{
+ const next=button.dataset.layout;if(!['cards','list'].includes(next)||next===catalogLayout)return;
+ cardCategoryMenu.close(false);customFilterMenu.close(false);catalogLayout=next;
+ try{localStorage.setItem(LAYOUT_KEY,next);}catch{notice('檢視方式已切換，本次無法記住偏好。');}
+ render();
+};
 function quickClassifications(game,r){
  const controls=el('div',undefined,'quick-classifications');controls.setAttribute('role','group');controls.setAttribute('aria-label',game.name+' · '+game.platforms.join(' / ')+'分類');
  for(const value of ['已白金','想玩','不再遊玩']){

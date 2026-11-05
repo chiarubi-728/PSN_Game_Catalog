@@ -6,6 +6,7 @@
 | --- | --- |
 | `dist/index.html`、`app.js`、`style.css` | 主介面與入口；dist 是原始碼，不是可刪除的產物 |
 | `dist/catalog*.js`、`browse-filters.js` | 遊戲合併、命名、搜尋與篩選 |
+| `dist/catalog-list.js`、`catalog-list.css` | 條列檢視及響應式版面；資料與操作沿用主介面 |
 | `dist/dates.js`、`catalog-sort.js` | 日期驗證、日期覆蓋與未知日期排序 |
 | `dist/model.js`、`history.js`、`store-names.js` | 資料格式、舊備份相容、獎盃與官方名稱 |
 | `dist/history-links.js`、`history-pairing-ui.js` | 明確的遊玩紀錄配對／保持分開、個人資料驗證與卡片選擇介面 |
