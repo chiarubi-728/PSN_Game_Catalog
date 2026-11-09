@@ -1,6 +1,6 @@
 # 目前交接狀態
 
-更新：2026-11-05 · 整合腳本：**v0.3.10**
+更新：2026-11-09 · 整合腳本：**v0.3.11**
 
 ## 正式來源
 
@@ -10,6 +10,12 @@
 - 公開首頁：[Rubi’s Cluttered Corner](https://chiarubi-728.github.io/)，另由 `chiarubi-728.github.io` 儲存庫的 main 根目錄發布。首頁整合卡蒂狗・風速狗圖鑑、App 停用入口與 PSN 遊戲庫；Google 資料用途區塊明確限定 PSN Game Catalog。詳細資料說明已移到總站 privacy.html／terms.html，完整包含 PSN 政策；首頁、遊戲庫與介紹頁主要連結同步更新。原專屬政策與 about.html 仍保留，遊戲庫網址不變。總站 PSN 政策與原專屬內容需持續同步維護。Google Console 首頁設定與重新提交由使用者處理；新增首頁不代表驗證已通過。
 - 操作看 [使用說明](使用說明.md)，目錄與指令看 [維護指南](MAINTENANCE.md)。
 - 歷次修正及回復資訊已移至 [開發紀錄](history/2026-10-22-development-notes.md)。
+
+## v0.3.11：拿滿獎盃的數量
+
+PSNProfiles 拿滿後將數量由「38 of 40 Trophies」改為「All 40 Trophies」。舊讀取只認 of／斜線格式，得到 null 後，mergeHistory 沿用原本的 earnedTotal／definedTotal，因此新 100% 進度會搭配舊數量。新增 All N Trophies 讀取，將已取得與總數都設為來源明示的 N，重新同步後原合併流程就會更新舊值。未用白金或 100% 反推數量，未知值與原數量驗證不變。
+
+整合腳本及主頁最低版本為 0.3.11，更新後需重新整理主頁與來源頁並重新同步。修正前完整程式已備份於本機 outputs/backups/20261109-trophy-totals/。靜態語法與引用檢查通過；未執行測試套件或真實帳號同步。
 
 ## v0.3.10：Sony 分頁終點
 
