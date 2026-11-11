@@ -56,6 +56,8 @@ export function initCloudSync({getSnapshot,applySnapshot,isBlocked,isDemo,isEdit
   function fail(error){
     if(error.code==='cancelled')return;
     if(error.code==='paused'){refresh();return;}
+    // A rejected conditional write must fetch a fresh ETag on the next attempt.
+    if(error.code==='conflict')cachedRemote=null;
     if(!auth.connected){setPhase('disconnected','Google 授權已過期 · 本機資料保留，請重新連接');return;}
     setPhase('error',error.message+'（本機資料保留）');
     if(!['blocked','duplicate','permission','invalid'].includes(error.code)&&navigator.onLine&&retries<4)schedule([5000,15000,30000,60000][retries++]);
@@ -129,6 +131,7 @@ export function initCloudSync({getSnapshot,applySnapshot,isBlocked,isDemo,isEdit
   async function resolve(useLocal){
     if(!conflict||busy||!account||isDemo()||isBlocked())return;
     busy=true;cancelTimer();const run=epoch,startRevision=revision,choice=conflict;
+    setPhase('syncing');
     try{
       const local=snapshot(getSnapshot()),result=await drive.read();current(run);
       const remote=result?snapshot(result.value):null,remoteHash=remote?await fingerprint(remote):null;

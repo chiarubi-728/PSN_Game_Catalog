@@ -55,16 +55,21 @@
    return {file:{id:data.id,name:data.title,version:data.version,modifiedTime:data.modifiedDate,size:data.fileSize},etag:data.etag,etagApi:'v2'};
   }
   async read(cached=null){
-   const file=await this.find();if(!file)return null;
-   if(Number(file.size)>5*1024*1024)throw new DriveError('雲端進度超過 5 MB，已停止下載。','invalid');
-   if(cached?.file?.id===file.id&&cached.file.version===file.version&&cached.etagApi==='v2'&&validEtag(cached.etag))return cached;
-   const before=await this.protectedMetadata(file.id);
-   if(before.file.version!==file.version)throw new DriveError('讀取期間雲端已變更，請重試。','conflict');
-   const media=await this.request('https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(file.id)+'?alt=media');
-   if(media.text.length>5*1024*1024)throw new DriveError('雲端进度檔案太大。','invalid');
-   const latest=await this.protectedMetadata(file.id);
-   if(latest.file.version!==file.version||latest.etag!==before.etag)throw new DriveError('下載期間雲端已變更，請再下載一次。','conflict');
-   return {...latest,value:this.json(media)};
+   for(let attempt=0;attempt<3;attempt++){
+    const file=await this.find();if(!file)return null;
+    if(Number(file.size)>5*1024*1024)throw new DriveError('雲端進度超過 5 MB，已停止下載。','invalid');
+    if(cached?.file?.id===file.id&&cached.file.version===file.version&&cached.etagApi==='v2'&&validEtag(cached.etag))return cached;
+    const before=await this.protectedMetadata(file.id);
+    if(before.file.version!==file.version)continue;
+    const media=await this.request('https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(file.id)+'?alt=media');
+    if(media.text.length>5*1024*1024)throw new DriveError('雲端進度檔案太大。','invalid');
+    const latest=await this.protectedMetadata(file.id);
+    // Drive's version reflects all server-side changes. Compare that revision,
+    // not two metadata response ETags; keep the newest ETag for If-Match writes.
+    if(latest.file.version!==before.file.version)continue;
+    return {...latest,value:this.json(media)};
+   }
+   throw new DriveError('雲端版本持續變更，重讀三次仍未穩定。請稍後再試。','conflict');
   }
   async write(value,expected){
    const current=await this.find();

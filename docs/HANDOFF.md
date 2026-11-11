@@ -1,6 +1,6 @@
 # 目前交接狀態
 
-更新：2026-11-09 · 整合腳本：**v0.3.11**
+更新：2026-11-11 · 整合腳本：**v0.3.11**
 
 ## 正式來源
 
@@ -10,6 +10,14 @@
 - 公開首頁：[Rubi’s Cluttered Corner](https://chiarubi-728.github.io/)，另由 `chiarubi-728.github.io` 儲存庫的 main 根目錄發布。首頁整合卡蒂狗・風速狗圖鑑、App 停用入口與 PSN 遊戲庫；Google 資料用途區塊明確限定 PSN Game Catalog。詳細資料說明已移到總站 privacy.html／terms.html，完整包含 PSN 政策；首頁、遊戲庫與介紹頁主要連結同步更新。原專屬政策與 about.html 仍保留，遊戲庫網址不變。總站 PSN 政策與原專屬內容需持續同步維護。Google Console 首頁設定與重新提交由使用者處理；新增首頁不代表驗證已通過。
 - 操作看 [使用說明](使用說明.md)，目錄與指令看 [維護指南](MAINTENANCE.md)。
 - 歷次修正及回復資訊已移至 [開發紀錄](history/2026-10-22-development-notes.md)。
+
+## 雲端下載確認與衝突重試
+
+使用者選「使用此裝置版本」後反覆遇到「下載期間雲端已變更」。舊 Drive read 在檔案 version 不變時，仍因兩次 metadata ETag 不同而拒絕下載。本輪改為以下載前後的 version 確認一致，保留最新有效 v2 ETag 供 If-Match 上傳；真正版本變動最多完整重讀三次。條件寫入失敗會清除 cachedRemote，下一次不沿用過期的保護碼；選擇版本時立即顯示同步中並停用選擇按鈕。整份快照指紋、本機 revision、復原備份、上傳後讀回及 HTTP 412 防覆蓋仍保留。
+
+已在隔離模擬回應下重現舊錯誤，通過七項針對性檢查：舊錯誤重現、相同版本不同 ETag 的讀取及條件上傳、版本改變後重讀、持續變動三次停止、讀後寫前變更拒絕、HTTP 412 拒絕及缺少有效 ETag 拒絕。未連接真實 Drive、操作私人資料或執行既有測試套件；真實 Google 同步仍待使用者重試。Google 官方 version 定義見 https://developers.google.com/workspace/drive/api/reference/rest/v3/files#File 。使用者截圖未包含實際 API 回應，不能斷言唯一原因是 ETag 變動。
+
+本次僅修改網站，整合腳本仍為 v0.3.11。修正前程式備份於本機 outputs/backups/20261111-cloud-read/。
 
 ## v0.3.11：拿滿獎盃的數量
 
